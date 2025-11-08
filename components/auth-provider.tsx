@@ -157,9 +157,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .single()
 
         if (insertError) {
+          // 如果是主键冲突（23505），说明触发器已经创建了 profile，重新查询
+          if (insertError.code === '23505') {
+            console.warn("Profile already exists (created by trigger), requerying...")
+            const { data: existingProfile, error: reqError } = await supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", supabaseUser.id)
+              .single()
+
+            if (reqError || !existingProfile) {
+              console.error("Cannot load existing profile:", reqError)
+              // 这种情况很罕见，清除 session 并跳转登录
+              await supabase.auth.signOut()
+              setUser(null)
+              window.location.href = "/login?error=profile_missing"
+              return
+            }
+
+            // 使用已存在的 profile
+            const userData: User = {
+              id: supabaseUser.id,
+              email: supabaseUser.email!,
+              firstName: existingProfile.first_name || "",
+              lastName: existingProfile.last_name || "",
+              company: existingProfile.company || undefined,
+              role: existingProfile.role || "User",
+            }
+
+            console.log("Setting user data (existing profile):", userData)
+            setUser(userData)
+            return
+          }
+
+          // 其他错误，清除 session
           console.error("Error creating profile:", insertError)
           console.warn("Cannot create profile, clearing session and redirecting to login...")
-          // 创建失败，清除 session 并重定向到登录页
           await supabase.auth.signOut()
           setUser(null)
           window.location.href = "/login?error=profile_missing"
@@ -321,22 +354,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (authData.user) {
-        // Create profile in profiles table
-        const { error: profileError } = await supabase.from("profiles").insert({
-          id: authData.user.id,
-          email: userData.email,
-          first_name: userData.firstName,
-          last_name: userData.lastName,
-          company: userData.company || null,
-          role: "User",
-        })
-
-        if (profileError) {
-          console.error("Profile creation error:", profileError)
-          // User is created but profile failed
-          // 尝试使用触发器自动创建 profile（如果已配置）
-        }
-
+        console.log("User created successfully, waiting for trigger to create profile...")
+        
+        // 等待触发器创建 profile（给触发器一点时间执行）
+        // 触发器应该会自动创建 profile，所以不需要手动创建
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // 加载用户 profile（如果触发器没有创建，loadUserProfile 会自动创建）
         await loadUserProfile(authData.user)
         setIsLoading(false)
         return { success: true }
