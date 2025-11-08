@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Building2,
   Users,
+  Package,
 } from "lucide-react"
 
 const menuItems = [
@@ -23,6 +24,11 @@ const menuItems = [
     title: "Customers",
     href: "/customers",
     icon: Users,
+  },
+  {
+    title: "Products",
+    href: "/products",
+    icon: Package,
   },
   {
     title: "Settings",
