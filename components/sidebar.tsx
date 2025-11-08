@@ -14,6 +14,7 @@ import {
   Package,
   ShoppingCart,
   Truck,
+  Database,
 } from "lucide-react"
 
 const menuItems = [
@@ -41,6 +42,11 @@ const menuItems = [
     title: "Purchase Orders",
     href: "/purchase-orders",
     icon: ShoppingCart,
+  },
+  {
+    title: "Configuration",
+    href: "/config",
+    icon: Database,
   },
   {
     title: "Settings",
