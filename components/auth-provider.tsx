@@ -49,20 +49,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (!mounted) return
 
-        // 如果获取 session 时出错，清除所有状态并跳转登录
+        // 如果获取 session 时出错，尝试刷新 token
         if (sessionError) {
           console.error("Error getting session:", sessionError)
-          console.warn("Session error detected, clearing and redirecting to login...")
-          try {
-            await supabase.auth.signOut()
-          } catch (e) {
-            console.error("Error during signOut:", e)
+          console.warn("Session error detected, attempting to refresh token...")
+          
+          // 尝试刷新 token
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+          
+          if (refreshError || !refreshData.session) {
+            console.error("Token refresh failed:", refreshError)
+            console.warn("Cannot refresh token, clearing session and redirecting to login...")
+            try {
+              await supabase.auth.signOut()
+            } catch (e) {
+              console.error("Error during signOut:", e)
+            }
+            if (mounted) {
+              setUser(null)
+              setIsLoading(false)
+            }
+            window.location.href = "/login?error=session_expired"
+            return
           }
-          if (mounted) {
-            setUser(null)
-            setIsLoading(false)
+          
+          // Token 刷新成功，使用新的 session
+          console.log("Token refreshed successfully")
+          if (refreshData.session?.user) {
+            await loadUserProfile(refreshData.session.user)
           }
-          window.location.href = "/login?error=session_invalid"
           return
         }
 
@@ -74,8 +89,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error: any) {
         console.error("Exception checking session:", error)
-        // 任何异常都清除 session 并跳转登录
-        console.warn("Exception in checkSession, clearing and redirecting...")
+        
+        // 尝试刷新 token 作为最后的补救措施
+        console.warn("Exception occurred, attempting to refresh token...")
+        try {
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+          
+          if (!refreshError && refreshData.session?.user) {
+            console.log("Token refreshed successfully after exception")
+            if (mounted) {
+              await loadUserProfile(refreshData.session.user)
+              setIsLoading(false)
+            }
+            return
+          }
+        } catch (refreshErr) {
+          console.error("Token refresh failed:", refreshErr)
+        }
+        
+        // 刷新失败，清除 session 并跳转登录
+        console.warn("Cannot recover session, clearing and redirecting to login...")
         try {
           await supabase.auth.signOut()
         } catch (e) {
@@ -117,11 +150,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const loadUserProfile = async (supabaseUser: SupabaseUser) => {
+  const loadUserProfile = async (supabaseUser: SupabaseUser, retryCount = 0) => {
     try {
-      console.log("Loading profile for user:", supabaseUser.id)
+      console.log(`Loading profile for user: ${supabaseUser.id} (attempt ${retryCount + 1})`)
       
-      // 添加超时保护：5秒后如果还没有响应，就使用默认数据
+      // 添加超时保护：5秒后如果还没有响应，尝试重试
       const timeout = new Promise((_, reject) => 
         setTimeout(() => reject(new Error("Profile query timeout")), 5000)
       )
@@ -243,9 +276,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("User data set successfully")
     } catch (error: any) {
       console.error("Error loading user profile:", error)
-      console.warn("Exception occurred, clearing session and redirecting to login...")
       
-      // 发生异常（包括超时），清除 session 并重定向到登录页
+      // 如果是超时且还没重试过，尝试重试一次
+      if (error.message === "Profile query timeout" && retryCount === 0) {
+        console.warn("Query timeout, retrying once...")
+        await new Promise(resolve => setTimeout(resolve, 1000)) // 等待1秒
+        return loadUserProfile(supabaseUser, 1) // 重试
+      }
+      
+      // 如果是网络错误或超时重试失败，使用基本数据继续（不阻塞用户）
+      if (error.message.includes("timeout") || error.message.includes("network") || error.message.includes("fetch")) {
+        console.warn("Network issue detected, using fallback user data...")
+        const userData: User = {
+          id: supabaseUser.id,
+          email: supabaseUser.email!,
+          firstName: supabaseUser.user_metadata?.first_name || supabaseUser.email?.split("@")[0] || "User",
+          lastName: supabaseUser.user_metadata?.last_name || "",
+          company: undefined,
+          role: "User",
+        }
+        
+        console.log("Setting fallback user data:", userData)
+        setUser(userData)
+        
+        // 在后台异步尝试重新加载 profile
+        setTimeout(async () => {
+          try {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", supabaseUser.id)
+              .single()
+            
+            if (profile) {
+              console.log("Background profile refresh successful")
+              setUser({
+                id: profile.id,
+                email: profile.email,
+                firstName: profile.first_name || "",
+                lastName: profile.last_name || "",
+                company: profile.company || undefined,
+                role: profile.role || "User",
+              })
+            }
+          } catch (bgError) {
+            console.error("Background profile refresh failed:", bgError)
+          }
+        }, 5000)
+        
+        return
+      }
+      
+      // 其他严重错误（如数据库崩溃），清除 session 并跳转登录
+      console.warn("Critical error, clearing session and redirecting to login...")
       try {
         await supabase.auth.signOut()
       } catch (signOutError) {
@@ -253,7 +336,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       setUser(null)
-      window.location.href = "/login?error=timeout"
+      window.location.href = "/login?error=profile_error"
     }
   }
 
