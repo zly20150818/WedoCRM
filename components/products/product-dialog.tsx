@@ -397,57 +397,67 @@ export function ProductDialog({
           isFullscreen 
             ? "w-screen h-screen max-w-none max-h-none m-0 rounded-none" 
             : "max-w-4xl max-h-[90vh]"
-        } overflow-y-auto`}
+        } flex flex-col p-0`}
       >
-        <DialogHeader className="flex-row items-center justify-between space-y-0 pb-4">
-          <div>
-            <DialogTitle className="text-2xl">
-              {product ? "Edit Product" : "Create New Product"}
-            </DialogTitle>
-            <DialogDescription>
-              {product 
-                ? "Update the product information below" 
-                : "Fill in the details to create a new product. Your progress is automatically saved."}
-            </DialogDescription>
-          </div>
-          <div className="flex gap-2">
-            {!product && (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSaveDraft}
-                  disabled={loading}
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Draft
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleClearForm}
-                  disabled={loading}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Clear Form
-                </Button>
-              </>
-            )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsFullscreen(!isFullscreen)}
-            >
-              <Maximize2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </DialogHeader>
+        {/* 固定的顶部标题和按钮区域 */}
+        <div className="sticky top-0 z-10 bg-background border-b px-6 py-4">
+          <DialogHeader className="flex-row items-start justify-between space-y-0">
+            <div className="flex-1 pr-4">
+              <DialogTitle className="text-2xl">
+                {product ? "Edit Product" : "Create New Product"}
+              </DialogTitle>
+              <DialogDescription className="mt-1">
+                {product 
+                  ? "Update the product information below" 
+                  : "Fill in the details to create a new product. Your progress is automatically saved."}
+              </DialogDescription>
+            </div>
+            
+            {/* 右上角按钮区域 */}
+            <div className="flex gap-2 shrink-0">
+              {!product && (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSaveDraft}
+                    disabled={loading}
+                    title="Save Draft"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Draft
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearForm}
+                    disabled={loading}
+                    title="Clear Form"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Clear Form
+                  </Button>
+                </>
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
+        </div>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* 可滚动的内容区域 */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* 基本信息部分 */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Basic Information</h3>
@@ -801,8 +811,9 @@ export function ProductDialog({
                 </Button>
               </div>
             </div>
-          </form>
-        </Form>
+            </form>
+          </Form>
+        </div>
       </DialogContent>
     </Dialog>
   )

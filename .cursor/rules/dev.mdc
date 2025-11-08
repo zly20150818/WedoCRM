@@ -568,10 +568,12 @@ npm run dev:safe
 
 ### 必须实现的功能
 
-#### 1. 全屏显示模式
+#### 1. 全屏显示模式和固定顶部布局
 - ✅ 对话框支持全屏和标准模式切换
 - ✅ 默认使用全屏模式，适合字段多的表单
 - ✅ 提供切换按钮，允许用户选择显示模式
+- ✅ **所有操作按钮固定在顶部右上角**
+- ✅ **滚动内容时按钮始终可见**
 
 **实现示例**：
 ```typescript
@@ -582,11 +584,30 @@ const [isFullscreen, setIsFullscreen] = useState(true)
     isFullscreen 
       ? "w-screen h-screen max-w-none max-h-none m-0 rounded-none" 
       : "max-w-4xl max-h-[90vh]"
-  } overflow-y-auto`}
+  } flex flex-col p-0`}
 >
-  <Button onClick={() => setIsFullscreen(!isFullscreen)}>
-    <Maximize2 className="h-4 w-4" />
-  </Button>
+  {/* 固定的顶部标题和按钮区域 */}
+  <div className="sticky top-0 z-10 bg-background border-b px-6 py-4">
+    <DialogHeader className="flex-row items-start justify-between space-y-0">
+      <div className="flex-1 pr-4">
+        <DialogTitle>Title</DialogTitle>
+        <DialogDescription>Description</DialogDescription>
+      </div>
+      
+      {/* 右上角按钮区域 - 始终可见 */}
+      <div className="flex gap-2 shrink-0">
+        <Button size="sm">Action</Button>
+        <Button size="sm" onClick={() => setIsFullscreen(!isFullscreen)}>
+          <Maximize2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </DialogHeader>
+  </div>
+
+  {/* 可滚动的内容区域 */}
+  <div className="flex-1 overflow-y-auto px-6 py-4">
+    {/* 表单内容 */}
+  </div>
 </DialogContent>
 ```
 
@@ -642,25 +663,36 @@ useEffect(() => {
 - ✅ **Save Draft**: 手动保存当前表单数据
 - ✅ **Clear Form**: 清空所有表单数据和草稿
 - ✅ 仅在新建模式下显示这些按钮
+- ✅ **所有按钮固定在顶部右上角区域**
+- ✅ **使用 sticky 定位确保滚动时始终可见**
 
 **UI 布局示例**：
 ```typescript
-<DialogHeader className="flex-row items-center justify-between">
-  <DialogTitle>Create New Item</DialogTitle>
-  <div className="flex gap-2">
-    <Button variant="outline" size="sm" onClick={handleSaveDraft}>
-      <Save className="h-4 w-4 mr-2" />
-      Save Draft
-    </Button>
-    <Button variant="outline" size="sm" onClick={handleClearForm}>
-      <Trash2 className="h-4 w-4 mr-2" />
-      Clear Form
-    </Button>
-    <Button variant="ghost" size="sm" onClick={() => setIsFullscreen(!isFullscreen)}>
-      <Maximize2 className="h-4 w-4" />
-    </Button>
-  </div>
-</DialogHeader>
+{/* 固定顶部区域 */}
+<div className="sticky top-0 z-10 bg-background border-b px-6 py-4">
+  <DialogHeader className="flex-row items-start justify-between space-y-0">
+    <div className="flex-1 pr-4">
+      <DialogTitle>Create New Item</DialogTitle>
+      <DialogDescription>Fill in the details...</DialogDescription>
+    </div>
+    
+    {/* 右上角按钮区域 - 始终可见 */}
+    <div className="flex gap-2 shrink-0">
+      <Button variant="outline" size="sm" onClick={handleSaveDraft} title="Save Draft">
+        <Save className="h-4 w-4 mr-2" />
+        Save Draft
+      </Button>
+      <Button variant="outline" size="sm" onClick={handleClearForm} title="Clear Form">
+        <Trash2 className="h-4 w-4 mr-2" />
+        Clear Form
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => setIsFullscreen(!isFullscreen)} 
+              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}>
+        <Maximize2 className="h-4 w-4" />
+      </Button>
+    </div>
+  </DialogHeader>
+</div>
 ```
 
 #### 5. 用户提示
@@ -691,7 +723,14 @@ toast({
 
 对于复杂表单对话框，必须包含以下特性：
 
+**布局和显示**
 - [ ] 全屏显示模式（可切换）
+- [ ] 固定顶部按钮区域（sticky positioning）
+- [ ] 所有操作按钮在顶部右上角
+- [ ] 滚动内容时按钮始终可见
+- [ ] 使用 flex 布局分离固定区和滚动区
+
+**数据持久化**
 - [ ] localStorage 数据持久化
 - [ ] 自动保存草稿（防抖）
 - [ ] 手动保存草稿按钮
@@ -701,6 +740,11 @@ toast({
 - [ ] 仅新建模式启用草稿功能
 - [ ] 编辑模式加载现有数据
 
+**用户体验**
+- [ ] 按钮添加 title 属性显示提示
+- [ ] 使用图标增强可识别性
+- [ ] 底部显示自动保存提示文本
+
 ### 注意事项
 
 1. **隐私数据**: 不要在 localStorage 中保存敏感信息（如密码、支付信息）
@@ -708,3 +752,24 @@ toast({
 3. **清理策略**: 成功提交后必须清除草稿，避免数据混乱
 4. **编辑模式**: 编辑现有数据时，不使用草稿功能
 5. **测试**: 确保关闭/重开对话框能正确恢复数据
+6. **布局结构**: 使用 `flex flex-col p-0` 在 DialogContent 上，分离固定区和滚动区
+7. **固定定位**: 使用 `sticky top-0 z-10` 确保顶部区域始终可见
+8. **按钮位置**: 所有操作按钮统一放在顶部右上角，使用 `shrink-0` 防止压缩
+
+### 布局要点
+
+**对话框结构**：
+```
+DialogContent (flex flex-col p-0)
+├── 固定顶部区域 (sticky top-0 z-10)
+│   ├── 标题和描述 (flex-1)
+│   └── 操作按钮组 (shrink-0)
+└── 可滚动内容区域 (flex-1 overflow-y-auto)
+    └── 表单内容
+```
+
+**关键 CSS 类**：
+- `DialogContent`: `flex flex-col p-0` - 建立 flex 容器，移除默认 padding
+- 顶部区域: `sticky top-0 z-10 bg-background border-b px-6 py-4` - 固定定位
+- 按钮容器: `flex gap-2 shrink-0` - 防止按钮被压缩
+- 内容区域: `flex-1 overflow-y-auto px-6 py-4` - 可滚动区域
