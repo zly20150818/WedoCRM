@@ -21,7 +21,9 @@
     "supabase:monitor": "scripts\\supabase-monitor.bat",
     "supabase:status": "supabase status",
     "supabase:start": "supabase start",
-    "supabase:stop": "supabase stop"
+    "supabase:stop": "supabase stop",
+    "user:setup-admin": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-admin-user.ps1",
+    "user:setup-admin:bat": "scripts\\setup-admin-user.bat"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",

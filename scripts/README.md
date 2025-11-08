@@ -165,9 +165,38 @@ scripts\supabase-monitor.ps1 -IntervalSeconds 30 -MaxFailures 2
 
 ---
 
-### 7. 创建测试用户 - `create-test-user`
+### 7. 一键创建管理员用户 - `setup-admin-user` ⭐ 推荐
 
-创建默认测试用户（admin@fincrm.com）并设置为管理员角色。
+一键创建测试用户并自动设置为管理员角色（最方便的方式）。
+
+**使用方法**：
+
+```cmd
+# 使用 npm 脚本（最推荐）
+npm run user:setup-admin
+
+# 或直接运行批处理文件
+scripts\setup-admin-user.bat
+
+# 或使用 PowerShell 版本
+powershell -ExecutionPolicy Bypass -File scripts\setup-admin-user.ps1
+```
+
+**功能**：
+- ✅ 自动创建用户 admin@fincrm.com
+- ✅ 密码：admin123
+- ✅ **自动设置为 Admin 角色**
+- ✅ 设置完整的用户信息（姓名、公司）
+- ✅ 智能检测：如果用户已存在，自动更新为管理员
+- ✅ 一步到位，无需额外操作
+
+**这是最简单的方式！**
+
+---
+
+### 8. 单独创建用户 - `create-test-user`
+
+仅创建用户，不自动设置为管理员（需要配合 `make-admin` 使用）。
 
 **使用方法**：
 
@@ -175,23 +204,19 @@ scripts\supabase-monitor.ps1 -IntervalSeconds 30 -MaxFailures 2
 # 直接运行批处理文件
 scripts\create-test-user.bat
 
-# 或使用 PowerShell 版本（推荐）
+# 或使用 PowerShell 版本
 powershell -ExecutionPolicy Bypass -File scripts\create-test-user.ps1
 ```
 
 **功能**：
-- ✅ 自动创建测试用户 admin@fincrm.com
+- ✅ 创建测试用户 admin@fincrm.com
 - ✅ 密码：admin123
-- ✅ 设置为 Admin 角色
-- ✅ 自动设置公司信息
-
-**注意**：
-- ⚠️ 如果用户已存在，脚本会提示错误（这是正常的）
-- ⚠️ 创建后需要手动升级为 Admin（或运行 `make-admin.bat`）
+- ✅ 默认角色：User
+- ⚠️ 需要手动运行 `make-admin.bat` 升级为管理员
 
 ---
 
-### 8. 升级为管理员 - `make-admin`
+### 9. 升级为管理员 - `make-admin`
 
 将指定用户升级为管理员角色。
 
@@ -206,9 +231,11 @@ scripts\make-admin.bat
 - ✅ 将 admin@fincrm.com 升级为 Admin 角色
 - ✅ 设置管理员信息
 
+**提示**：如果使用 `setup-admin-user` 脚本，则无需单独运行此脚本。
+
 ---
 
-### 9. 完整启动开发环境 - `start-dev-with-supabase`
+### 10. 完整启动开发环境 - `start-dev-with-supabase`
 
 启动开发服务器前自动检查并修复 Supabase。
 
@@ -270,8 +297,8 @@ npm run supabase:monitor
 # 2. 重置数据库
 npm run db:reset
 
-# 3. 创建测试用户
-powershell -ExecutionPolicy Bypass -File scripts\create-test-user.ps1
+# 3. 一键创建管理员用户
+npm run user:setup-admin
 
 # 4. 更新类型
 npm run db:types
@@ -280,7 +307,23 @@ npm run db:types
 npm run dev:safe
 ```
 
-#### 首次设置流程
+#### 首次设置流程（最简单）⭐
+
+```cmd
+# 1. 安装依赖
+npm install
+
+# 2. 启动 Supabase
+supabase start
+
+# 3. 一键创建管理员用户
+npm run user:setup-admin
+
+# 4. 启动开发服务器
+npm run dev:full
+```
+
+#### 完整设置流程（分步骤）
 
 ```cmd
 # 1. 安装依赖
@@ -292,7 +335,7 @@ supabase start
 # 3. 创建测试用户
 powershell -ExecutionPolicy Bypass -File scripts\create-test-user.ps1
 
-# 4. 升级为管理员（如果需要）
+# 4. 升级为管理员
 scripts\make-admin.bat
 
 # 5. 启动开发服务器
