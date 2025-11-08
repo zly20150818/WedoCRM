@@ -3,8 +3,9 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
+import { saveUserToCache, getUserFromCache, clearUserCache } from "@/lib/utils/user-cache"
 
-interface User {
+export interface User {
   id: string
   email: string
   firstName: string
@@ -150,12 +151,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const loadUserProfile = async (supabaseUser: SupabaseUser, retryCount = 0) => {
+  const loadUserProfile = async (supabaseUser: SupabaseUser, forceRefresh = false) => {
     try {
-      console.log(`Loading profile for user: ${supabaseUser.id} (attempt ${retryCount + 1})`)
+      console.log(`Loading profile for user: ${supabaseUser.id}`)
       
-      // 直接查询，不使用过于严格的超时
-      // Supabase 客户端本身有默认超时机制
+      // 1. 如果不是强制刷新，先尝试从缓存获取
+      if (!forceRefresh) {
+        const cachedUser = getUserFromCache(supabaseUser.id)
+        if (cachedUser) {
+          console.log("Using cached user data, no database query needed")
+          setUser(cachedUser)
+          
+          // 后台静默刷新（可选）：在后台更新缓存
+          setTimeout(async () => {
+            try {
+              console.log("Background refresh: updating user cache...")
+              const { data: profile } = await supabase
+                .from("profiles")
+                .select("*")
+                .eq("id", supabaseUser.id)
+                .single()
+              
+              if (profile) {
+                const updatedUser: User = {
+                  id: profile.id,
+                  email: profile.email,
+                  firstName: profile.first_name || "",
+                  lastName: profile.last_name || "",
+                  company: profile.company || undefined,
+                  role: profile.role || "User",
+                }
+                saveUserToCache(updatedUser)
+                setUser(updatedUser)
+                console.log("Background refresh completed")
+              }
+            } catch (error) {
+              console.error("Background refresh failed:", error)
+            }
+          }, 2000) // 2秒后静默刷新
+          
+          return
+        } else {
+          console.log("No valid cache found, querying database...")
+        }
+      } else {
+        console.log("Force refresh requested, querying database...")
+      }
+      
+      // 2. 从数据库查询
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("*")
@@ -210,6 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
 
             console.log("Setting user data (existing profile):", userData)
+            saveUserToCache(userData) // 保存到缓存
             setUser(userData)
             return
           }
@@ -236,6 +280,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         console.log("Setting user data (new profile):", userData)
+        saveUserToCache(userData) // 保存到缓存
         setUser(userData)
         return
       }
@@ -263,6 +308,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       console.log("Setting user data:", userData)
+      saveUserToCache(userData) // 保存到缓存
       setUser(userData)
       console.log("User data set successfully")
     } catch (error: any) {
@@ -281,6 +327,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         
         console.log("Setting fallback user data:", userData)
+        saveUserToCache(userData) // 保存到缓存
         setUser(userData)
         
         // 在后台异步尝试重新加载 profile（3秒后）
@@ -295,14 +342,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             if (profile) {
               console.log("Background profile refresh successful")
-              setUser({
+              const refreshedUser: User = {
                 id: profile.id,
                 email: profile.email,
                 firstName: profile.first_name || "",
                 lastName: profile.last_name || "",
                 company: profile.company || undefined,
                 role: profile.role || "User",
-              })
+              }
+              saveUserToCache(refreshedUser) // 更新缓存
+              setUser(refreshedUser)
             }
           } catch (bgError) {
             console.error("Background profile refresh failed:", bgError)
@@ -450,7 +499,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true)
     try {
       await supabase.auth.signOut()
+      clearUserCache() // 清除缓存
       setUser(null)
+      console.log("User logged out and cache cleared")
     } catch (error) {
       console.error("Logout error:", error)
     } finally {

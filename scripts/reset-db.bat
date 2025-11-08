@@ -1,58 +1,29 @@
 @echo off
-REM 快速重置本地数据库脚本
+REM 数据库重置脚本（Windows CMD 版本）
+REM 重置 Supabase 数据库并显示管理员账号信息
 
-echo ======================================
-echo     Database Reset Script (Dev)
-echo ======================================
+echo ==========================================
+echo Resetting Database...
+echo ==========================================
 echo.
 
-echo [WARNING] This will delete all data in your local database!
-echo.
-
-set /p confirm="Are you sure you want to reset the database? (yes/no): "
-
-if /i not "%confirm%"=="yes" (
-    echo [INFO] Database reset cancelled.
-    pause
-    exit /b 0
-)
+REM 执行数据库重置
+call supabase db reset
 
 echo.
-echo Resetting database...
-
-REM 重置数据库
-supabase db reset
-
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] Database reset failed!
-    echo Please make sure Supabase is running: supabase start
-    pause
-    exit /b 1
-)
-
+echo ==========================================
+echo Database Reset Complete!
+echo ==========================================
 echo.
-echo [OK] Database reset successfully!
+echo Default Admin Account:
+echo   Email:    admin@fincrm.com
+echo   Password: admin123
+echo   Role:     Admin
 echo.
-
-set /p updateTypes="Do you want to update TypeScript types? (yes/no): "
-
-if /i "%updateTypes%"=="yes" (
-    echo.
-    echo Generating TypeScript types...
-    supabase gen types typescript --local > lib\supabase\types.ts
-    echo [OK] TypeScript types updated!
-)
-
+echo You can now login at:
+echo   http://localhost:3000/login
 echo.
-echo ======================================
-echo [OK] All operations completed!
-echo ======================================
-echo.
-echo You can now start the development server:
-echo   npm run dev:safe
-echo   or: scripts\start-dev.bat
+echo ==========================================
 echo.
 
 pause
-

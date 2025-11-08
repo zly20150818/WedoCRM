@@ -88,6 +88,160 @@ FROM auth.users u
 WHERE u.id NOT IN (SELECT id FROM public.profiles)
 ON CONFLICT (id) DO NOTHING;
 
+-- ==================== 自动创建管理员账号（开发环境）====================
+-- 创建默认管理员账号
+-- Email: admin@fincrm.com
+-- Password: admin123
+
+DO $$
+DECLARE
+  admin_user_id UUID;
+BEGIN
+  -- 检查管理员用户是否已存在
+  SELECT id INTO admin_user_id
+  FROM auth.users
+  WHERE email = 'admin@fincrm.com';
+
+  -- 如果用户不存在，则创建
+  IF admin_user_id IS NULL THEN
+    -- 插入到 auth.users 表
+    INSERT INTO auth.users (
+      instance_id,
+      id,
+      aud,
+      role,
+      email,
+      encrypted_password,
+      email_confirmed_at,
+      invited_at,
+      confirmation_token,
+      confirmation_sent_at,
+      recovery_token,
+      recovery_sent_at,
+      email_change_token_new,
+      email_change,
+      email_change_sent_at,
+      last_sign_in_at,
+      raw_app_meta_data,
+      raw_user_meta_data,
+      is_super_admin,
+      created_at,
+      updated_at,
+      phone,
+      phone_confirmed_at,
+      phone_change,
+      phone_change_token,
+      phone_change_sent_at,
+      email_change_token_current,
+      email_change_confirm_status,
+      banned_until,
+      reauthentication_token,
+      reauthentication_sent_at,
+      is_sso_user,
+      deleted_at
+    ) VALUES (
+      '00000000-0000-0000-0000-000000000000',
+      gen_random_uuid(),
+      'authenticated',
+      'authenticated',
+      'admin@fincrm.com',
+      crypt('admin123', gen_salt('bf')), -- 使用 bcrypt 加密密码
+      NOW(),
+      NULL,
+      '',
+      NULL,
+      '',
+      NULL,
+      '',
+      '',
+      NULL,
+      NULL,
+      '{"provider":"email","providers":["email"]}',
+      '{"first_name":"System","last_name":"Admin","company":"FinCRM"}',
+      NULL,
+      NOW(),
+      NOW(),
+      NULL,
+      NULL,
+      '',
+      '',
+      NULL,
+      '',
+      0,
+      NULL,
+      '',
+      NULL,
+      false,
+      NULL
+    )
+    RETURNING id INTO admin_user_id;
+
+    -- 插入到 auth.identities 表
+    INSERT INTO auth.identities (
+      id,
+      user_id,
+      provider_id,
+      identity_data,
+      provider,
+      last_sign_in_at,
+      created_at,
+      updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      admin_user_id,
+      admin_user_id::text,
+      format('{"sub":"%s","email":"admin@fincrm.com"}', admin_user_id)::jsonb,
+      'email',
+      NOW(),
+      NOW(),
+      NOW()
+    );
+
+    -- 创建 profile（通过触发器应该会自动创建，但为了确保，这里显式创建）
+    INSERT INTO public.profiles (
+      id,
+      email,
+      first_name,
+      last_name,
+      company,
+      role,
+      is_active
+    ) VALUES (
+      admin_user_id,
+      'admin@fincrm.com',
+      'System',
+      'Admin',
+      'FinCRM',
+      'Admin',
+      true
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      first_name = EXCLUDED.first_name,
+      last_name = EXCLUDED.last_name,
+      company = EXCLUDED.company,
+      role = 'Admin',
+      is_active = true;
+
+    RAISE NOTICE 'Admin user created successfully!';
+    RAISE NOTICE 'Email: admin@fincrm.com';
+    RAISE NOTICE 'Password: admin123';
+  ELSE
+    -- 如果用户已存在，确保其 profile 是管理员角色
+    UPDATE public.profiles
+    SET 
+      role = 'Admin',
+      first_name = 'System',
+      last_name = 'Admin',
+      company = 'FinCRM',
+      is_active = true
+    WHERE id = admin_user_id;
+
+    RAISE NOTICE 'Admin user already exists, profile updated.';
+    RAISE NOTICE 'Email: admin@fincrm.com';
+    RAISE NOTICE 'Password: admin123';
+  END IF;
+END $$;
+
 -- ==================== 测试数据说明 ====================
 -- 
 -- 要创建测试用户，请使用以下方法之一：
