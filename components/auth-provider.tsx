@@ -36,20 +36,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = createClient()
 
   useEffect(() => {
+    let mounted = true
+
     // Check for existing session
     const checkSession = async () => {
       try {
+        console.log("Checking session...")
         const {
           data: { session },
         } = await supabase.auth.getSession()
 
+        if (!mounted) return
+
         if (session?.user) {
+          console.log("Session found, loading profile...")
           await loadUserProfile(session.user)
+        } else {
+          console.log("No session found")
         }
       } catch (error) {
         console.error("Error checking session:", error)
       } finally {
-        setIsLoading(false)
+        if (mounted) {
+          console.log("Setting isLoading to false")
+          setIsLoading(false)
+        }
       }
     }
 
@@ -59,6 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return
+
       if (session?.user) {
         await loadUserProfile(session.user)
       } else {
@@ -68,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     return () => {
+      mounted = false
       subscription.unsubscribe()
     }
   }, [])
