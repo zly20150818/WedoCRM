@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,7 @@ import { Building2, Eye, EyeOff } from "lucide-react"
 export default function LoginPage() {
   const { login, isLoading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -23,6 +24,19 @@ export default function LoginPage() {
   })
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
+
+  // 处理从重定向过来的错误信息
+  useEffect(() => {
+    const errorParam = searchParams.get("error")
+    if (errorParam) {
+      const errorMessages: Record<string, string> = {
+        profile_missing: "Your profile data is missing. Please login again or contact support.",
+        profile_error: "Failed to load your profile. Please login again.",
+        timeout: "Session timeout. Please login again.",
+      }
+      setError(errorMessages[errorParam] || "Session expired. Please login again.")
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

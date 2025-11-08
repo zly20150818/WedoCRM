@@ -109,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // 如果 profile 不存在（PGRST116错误），尝试创建一个
       if (error && error.code === "PGRST116") {
-        console.warn("Profile not found, creating one...")
+        console.warn("Profile not found, attempting to create one...")
         
         // 尝试创建 profile
         const { data: newProfile, error: insertError } = await supabase
@@ -127,18 +127,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (insertError) {
           console.error("Error creating profile:", insertError)
-        } else {
-          console.log("Profile created successfully:", newProfile)
+          console.warn("Cannot create profile, clearing session and redirecting to login...")
+          // 创建失败，清除 session 并重定向到登录页
+          await supabase.auth.signOut()
+          setUser(null)
+          window.location.href = "/login?error=profile_missing"
+          return
         }
 
-        // 使用新创建的 profile 或从 metadata 中获取数据
+        console.log("Profile created successfully:", newProfile)
+        
+        // 使用新创建的 profile
         const userData: User = {
           id: supabaseUser.id,
           email: supabaseUser.email!,
-          firstName: newProfile?.first_name || supabaseUser.user_metadata?.first_name || "",
-          lastName: newProfile?.last_name || supabaseUser.user_metadata?.last_name || "",
-          company: newProfile?.company || undefined,
-          role: newProfile?.role || "User",
+          firstName: newProfile.first_name || "",
+          lastName: newProfile.last_name || "",
+          company: newProfile.company || undefined,
+          role: newProfile.role || "User",
         }
 
         console.log("Setting user data (new profile):", userData)
@@ -146,18 +152,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
+      // 其他错误（网络问题、权限问题等），清除 session
       if (error) {
         console.error("Error loading profile:", error)
-        // 即使有错误，也尝试用 auth metadata 创建用户对象
-        const userData: User = {
-          id: supabaseUser.id,
-          email: supabaseUser.email!,
-          firstName: supabaseUser.user_metadata?.first_name || "",
-          lastName: supabaseUser.user_metadata?.last_name || "",
-          company: undefined,
-          role: "User",
-        }
-        setUser(userData)
+        console.warn("Profile query failed, clearing session and redirecting to login...")
+        // 清除 session 并重定向到登录页
+        await supabase.auth.signOut()
+        setUser(null)
+        window.location.href = "/login?error=profile_error"
         return
       }
 
@@ -177,20 +179,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("User data set successfully")
     } catch (error: any) {
       console.error("Error loading user profile:", error)
-      console.log("Using fallback user data due to error:", error?.message)
+      console.warn("Exception occurred, clearing session and redirecting to login...")
       
-      // 即使发生异常（包括超时），也要设置基本的用户数据，避免无限加载
-      const userData: User = {
-        id: supabaseUser.id,
-        email: supabaseUser.email!,
-        firstName: supabaseUser.user_metadata?.first_name || supabaseUser.email?.split("@")[0] || "User",
-        lastName: supabaseUser.user_metadata?.last_name || "",
-        company: undefined,
-        role: "User",
+      // 发生异常（包括超时），清除 session 并重定向到登录页
+      try {
+        await supabase.auth.signOut()
+      } catch (signOutError) {
+        console.error("Error signing out:", signOutError)
       }
       
-      console.log("Setting fallback user data:", userData)
-      setUser(userData)
+      setUser(null)
+      window.location.href = "/login?error=timeout"
     }
   }
 
