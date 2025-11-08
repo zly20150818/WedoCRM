@@ -63,12 +63,30 @@ INSERT INTO public.roles (name, description) VALUES
   ('User', '普通用户，基础权限')
 ON CONFLICT (name) DO NOTHING;
 
--- ==================== 管理员创建说明 ====================
--- 第一个注册的用户将自动成为管理员
--- 请访问 /register 页面注册第一个用户
+-- ==================== 创建测试用户（开发环境）====================
+-- 注意：由于直接操作 auth.users 表比较复杂，建议使用以下两种方式创建测试用户：
 --
--- 后续注册的用户都将是普通用户（User 角色）
--- 管理员可以在系统中手动提升其他用户的权限
+-- 方式 1（推荐）：运行 db reset 后，访问 /register 页面注册第一个用户
+-- 第一个注册的用户会自动成为管理员（通过 handle_new_user 触发器）
+--
+-- 方式 2：使用下面的 SQL 为已存在的 auth 用户创建 profile
+-- 如果你已经通过注册页面创建了用户，但缺少 profile，可以运行：
+
+-- 为所有没有 profile 的 auth 用户创建 profile
+INSERT INTO public.profiles (id, email, first_name, last_name, role, is_active)
+SELECT 
+  u.id,
+  u.email,
+  COALESCE(u.raw_user_meta_data->>'first_name', 'User'),
+  COALESCE(u.raw_user_meta_data->>'last_name', ''),
+  CASE 
+    WHEN (SELECT COUNT(*) FROM public.profiles) = 0 THEN 'Admin'
+    ELSE COALESCE(u.raw_user_meta_data->>'role', 'User')
+  END,
+  true
+FROM auth.users u
+WHERE u.id NOT IN (SELECT id FROM public.profiles)
+ON CONFLICT (id) DO NOTHING;
 
 -- ==================== 测试数据说明 ====================
 -- 
@@ -102,174 +120,6 @@ ON CONFLICT (name) DO NOTHING;
 -- enable_confirmations = false
 
 -- ==================== 产品分类测试数据 ====================
-<<<<<<< Current (Your changes)
-INSERT INTO public.product_categories (name, name_cn, description) VALUES
-  ('Electronics', '电子产品', 'Electronic components and devices'),
-  ('Motors', '电机', 'Electric motors and related products'),
-  ('Sensors', '传感器', 'Various types of sensors'),
-  ('Controllers', '控制器', 'Control systems and controllers'),
-  ('Cables', '电缆', 'Cables and wiring products'),
-  ('Batteries', '电池', 'Battery products'),
-  ('Displays', '显示器', 'Display screens and panels')
-ON CONFLICT (id) DO NOTHING;
-
--- ==================== 产品测试数据 ====================
--- 注意：需要先创建产品分类
-INSERT INTO public.products (
-  part_number, 
-  name, 
-  name_cn, 
-  description, 
-  description_cn, 
-  unit, 
-  price_with_tax, 
-  price_without_tax, 
-  weight, 
-  volume,
-  hs_code,
-  tax_refund_rate,
-  packaging_info,
-  is_active,
-  category_id
-) VALUES
-  (
-    'MTR-001',
-    'AC Electric Motor 5HP',
-    '5马力交流电机',
-    'High efficiency 5 horsepower AC electric motor, suitable for industrial applications',
-    '高效5马力交流电机，适用于工业应用',
-    'PCS',
-    1299.00,
-    1150.00,
-    25.500,
-    0.125,
-    '8501.10.00',
-    13.00,
-    'Wooden crate, 1 piece per crate, dimensions: 60x50x40cm',
-    true,
-    (SELECT id FROM public.product_categories WHERE name = 'Motors' LIMIT 1)
-  ),
-  (
-    'SNS-101',
-    'Temperature Sensor PT100',
-    'PT100温度传感器',
-    'High precision platinum resistance temperature sensor, -200°C to 850°C range',
-    '高精度铂电阻温度传感器，测量范围-200°C至850°C',
-    'PCS',
-    85.00,
-    75.00,
-    0.050,
-    0.001,
-    '9025.19.00',
-    13.00,
-    'Anti-static bag, 50 pieces per box, dimensions: 30x20x15cm',
-    true,
-    (SELECT id FROM public.product_categories WHERE name = 'Sensors' LIMIT 1)
-  ),
-  (
-    'CTL-202',
-    'PLC Controller 24V DC',
-    'PLC控制器24V直流',
-    '16 input/16 output programmable logic controller with Ethernet connectivity',
-    '16输入/16输出可编程逻辑控制器，带以太网连接',
-    'SET',
-    450.00,
-    398.00,
-    1.200,
-    0.008,
-    '8537.10.90',
-    13.00,
-    'Carton box with foam padding, 1 set per box, dimensions: 35x25x20cm',
-    true,
-    (SELECT id FROM public.product_categories WHERE name = 'Controllers' LIMIT 1)
-  ),
-  (
-    'CBL-305',
-    'Shielded Cable 4-Core 2.5mm²',
-    '屏蔽电缆4芯2.5平方',
-    'High quality shielded 4-core cable, 2.5mm² cross-section, suitable for industrial automation',
-    '高品质4芯屏蔽电缆，2.5平方横截面，适用于工业自动化',
-    'M',
-    12.50,
-    11.00,
-    0.180,
-    0.001,
-    '8544.49.00',
-    13.00,
-    'Coil packaging, 100 meters per coil, carton box',
-    true,
-    (SELECT id FROM public.product_categories WHERE name = 'Cables' LIMIT 1)
-  ),
-  (
-    'BAT-401',
-    'Lithium Battery Pack 24V 100Ah',
-    '锂电池组24V 100Ah',
-    'High capacity lithium iron phosphate battery pack with BMS, 2000+ cycle life',
-    '高容量磷酸铁锂电池组带BMS，循环寿命2000+次',
-    'PCS',
-    2800.00,
-    2478.00,
-    32.000,
-    0.065,
-    '8507.60.00',
-    13.00,
-    'Wooden box with cushioning, 1 piece per box, dimensions: 70x45x35cm',
-    true,
-    (SELECT id FROM public.product_categories WHERE name = 'Batteries' LIMIT 1)
-  ),
-  (
-    'DSP-501',
-    'TFT LCD Display 7 inch',
-    '7寸TFT液晶显示屏',
-    '7 inch color TFT display, 800x480 resolution, with touch screen',
-    '7寸彩色TFT显示屏，分辨率800x480，带触摸屏',
-    'PCS',
-    180.00,
-    159.00,
-    0.350,
-    0.005,
-    '8531.20.00',
-    13.00,
-    'Anti-static bag with foam protection, 10 pieces per carton, dimensions: 40x30x25cm',
-    true,
-    (SELECT id FROM public.product_categories WHERE name = 'Displays' LIMIT 1)
-  ),
-  (
-    'MTR-002',
-    'Stepper Motor NEMA 23',
-    'NEMA 23步进电机',
-    'High torque NEMA 23 stepper motor, 2.8A rated current, 1.8° step angle',
-    '高扭矩NEMA 23步进电机，额定电流2.8A，步进角1.8°',
-    'PCS',
-    65.00,
-    57.50,
-    0.850,
-    0.003,
-    '8501.10.00',
-    13.00,
-    'Individual box packaging, 20 pieces per carton, dimensions: 50x40x30cm',
-    true,
-    (SELECT id FROM public.product_categories WHERE name = 'Motors' LIMIT 1)
-  ),
-  (
-    'SNS-102',
-    'Ultrasonic Distance Sensor',
-    '超声波距离传感器',
-    'Ultrasonic ranging sensor, 2cm to 400cm detection range, IP67 rated',
-    '超声波测距传感器，检测范围2cm至400cm，防护等级IP67',
-    'PCS',
-    38.00,
-    33.60,
-    0.120,
-    0.002,
-    '9031.80.00',
-    13.00,
-    'Individual box, 50 pieces per carton, dimensions: 35x30x20cm',
-    true,
-    (SELECT id FROM public.product_categories WHERE name = 'Sensors' LIMIT 1)
-  )
-ON CONFLICT (part_number) DO NOTHING;
-=======
 INSERT INTO public.product_categories (id, name, name_cn, description) VALUES
   ('cat-electronics', 'Electronics', '电子产品', 'Electronic components and devices'),
   ('cat-mechanical', 'Mechanical Parts', '机械部件', 'Mechanical components and hardware'),
@@ -475,5 +325,4 @@ INSERT INTO public.products (
     'Standard specification, matches with M8 bolt'
   )
 ON CONFLICT (id) DO NOTHING;
->>>>>>> Incoming (Background Agent changes)
 
