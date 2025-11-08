@@ -22,7 +22,8 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { ProductDialog } from "@/components/products/product-dialog"
-import { Plus, Search, Pencil, Trash2, Package } from "lucide-react"
+import { CategoryDialog } from "@/components/products/category-dialog"
+import { Plus, Search, Pencil, Trash2, Package, FolderPlus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
@@ -72,6 +73,8 @@ interface ProductCategory {
   name: string
   name_cn: string | null
   description: string | null
+  created_at: string
+  updated_at: string
 }
 
 /**
@@ -90,6 +93,8 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<ProductCategory | null>(null)
 
   const { toast } = useToast()
   const supabase = createClient()
@@ -195,6 +200,14 @@ export default function ProductsPage() {
   }
 
   /**
+   * 打开新建分类对话框
+   */
+  function handleCreateCategory() {
+    setEditingCategory(null)
+    setCategoryDialogOpen(true)
+  }
+
+  /**
    * 打开编辑产品对话框
    */
   function handleEdit(product: Product) {
@@ -271,10 +284,16 @@ export default function ProductsPage() {
               Manage your product catalog
             </p>
           </div>
-          <Button onClick={handleCreate}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Product
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleCreateCategory}>
+              <FolderPlus className="h-4 w-4 mr-2" />
+              Add Category
+            </Button>
+            <Button onClick={handleCreate}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Product
+            </Button>
+          </div>
         </div>
 
         {/* 搜索和筛选栏 */}
@@ -436,6 +455,17 @@ export default function ProductsPage() {
           product={editingProduct}
           onSuccess={loadProducts}
           categories={categories}
+        />
+
+        {/* 创建/编辑分类对话框 */}
+        <CategoryDialog
+          open={categoryDialogOpen}
+          onOpenChange={setCategoryDialogOpen}
+          category={editingCategory}
+          onSuccess={() => {
+            loadCategories()
+            loadProducts()
+          }}
         />
 
         {/* 删除确认对话框 */}

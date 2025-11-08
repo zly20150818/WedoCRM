@@ -33,6 +33,8 @@ export default function LoginPage() {
         profile_missing: "Your profile data is missing. Please login again or contact support.",
         profile_error: "Failed to load your profile. Please login again.",
         timeout: "Session timeout. Please login again.",
+        session_invalid: "Invalid session token. Please login again.",
+        session_error: "Session error occurred. Please login again.",
       }
       setError(errorMessages[errorParam] || "Session expired. Please login again.")
     }

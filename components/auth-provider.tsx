@@ -32,7 +32,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(false) // 改为 false，不阻塞 UI
+  const [isLoading, setIsLoading] = useState(true) // 初始为 true，检查 session
   const supabase = createClient()
 
   useEffect(() => {
@@ -44,9 +44,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log("Checking session...")
         const {
           data: { session },
+          error: sessionError,
         } = await supabase.auth.getSession()
 
         if (!mounted) return
+
+        // 如果获取 session 时出错，清除所有状态并跳转登录
+        if (sessionError) {
+          console.error("Error getting session:", sessionError)
+          console.warn("Session error detected, clearing and redirecting to login...")
+          try {
+            await supabase.auth.signOut()
+          } catch (e) {
+            console.error("Error during signOut:", e)
+          }
+          if (mounted) {
+            setUser(null)
+            setIsLoading(false)
+          }
+          window.location.href = "/login?error=session_invalid"
+          return
+        }
 
         if (session?.user) {
           console.log("Session found, loading profile...")
@@ -54,8 +72,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           console.log("No session found")
         }
-      } catch (error) {
-        console.error("Error checking session:", error)
+      } catch (error: any) {
+        console.error("Exception checking session:", error)
+        // 任何异常都清除 session 并跳转登录
+        console.warn("Exception in checkSession, clearing and redirecting...")
+        try {
+          await supabase.auth.signOut()
+        } catch (e) {
+          console.error("Error during signOut:", e)
+        }
+        if (mounted) {
+          setUser(null)
+          setIsLoading(false)
+        }
+        window.location.href = "/login?error=session_error"
+        return
       } finally {
         if (mounted) {
           console.log("Setting isLoading to false")
