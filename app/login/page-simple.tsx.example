@@ -1,0 +1,90 @@
+"use client"
+
+/**
+ * 简化的登录页面示例
+ * 直接使用 Supabase，不依赖 Auth Provider
+ * 更符合 Supabase 官方推荐的做法
+ */
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+
+export default function LoginPageSimple() {
+  const router = useRouter()
+  const supabase = createClient()
+  
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError("")
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) {
+        setError(error.message)
+      } else {
+        // Supabase 会自动设置 session
+        router.push("/dashboard")
+        router.refresh() // 刷新服务器组件
+      }
+    } catch (err: any) {
+      setError(err.message || "Login failed")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Login</CardTitle>
+          <CardDescription>Welcome back</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            {error && <div className="text-sm text-red-600">{error}</div>}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Loading..." : "Sign In"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
