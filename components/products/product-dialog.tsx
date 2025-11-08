@@ -442,6 +442,16 @@ export function ProductDialog({
                 </>
               )}
               <Button
+                type="submit"
+                size="sm"
+                disabled={loading}
+                form="product-form"
+                title={product ? "Update Product" : "Create Product"}
+              >
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {product ? "Update" : "Create"}
+              </Button>
+              <Button
                 type="button"
                 variant="ghost"
                 size="sm"
@@ -457,7 +467,7 @@ export function ProductDialog({
         {/* 可滚动的内容区域 */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form id="product-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* 基本信息部分 */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Basic Information</h3>
@@ -791,26 +801,12 @@ export function ProductDialog({
               />
             </div>
 
-            {/* 表单操作按钮 */}
-            <div className="flex justify-between items-center pt-4 border-t">
-              <div className="text-sm text-muted-foreground">
-                {!product && "* Your changes are automatically saved as draft"}
+            {/* 底部提示信息 */}
+            {!product && (
+              <div className="text-sm text-muted-foreground pt-4 border-t">
+                * Your changes are automatically saved as draft
               </div>
-              <div className="flex gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  disabled={loading}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {product ? "Update Product" : "Create Product"}
-                </Button>
-              </div>
-            </div>
+            )}
             </form>
           </Form>
         </div>

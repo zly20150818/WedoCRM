@@ -660,11 +660,19 @@ useEffect(() => {
 ```
 
 #### 4. 手动操作按钮
-- ✅ **Save Draft**: 手动保存当前表单数据
-- ✅ **Clear Form**: 清空所有表单数据和草稿
-- ✅ 仅在新建模式下显示这些按钮
+- ✅ **Save Draft**: 手动保存当前表单数据（仅新建模式）
+- ✅ **Clear Form**: 清空所有表单数据和草稿（仅新建模式）
+- ✅ **Submit Button**: 提交表单的主要按钮（Create/Update）
+- ✅ **Maximize Toggle**: 切换全屏模式
 - ✅ **所有按钮固定在顶部右上角区域**
 - ✅ **使用 sticky 定位确保滚动时始终可见**
+- ❌ **不要添加取消按钮**（用户可以点击对话框外部或 ESC 键关闭）
+
+**按钮排列顺序（从左到右）**：
+1. Save Draft（仅新建模式）
+2. Clear Form（仅新建模式）
+3. Submit Button（Create/Update）
+4. Maximize Toggle
 
 **UI 布局示例**：
 ```typescript
@@ -678,13 +686,20 @@ useEffect(() => {
     
     {/* 右上角按钮区域 - 始终可见 */}
     <div className="flex gap-2 shrink-0">
-      <Button variant="outline" size="sm" onClick={handleSaveDraft} title="Save Draft">
-        <Save className="h-4 w-4 mr-2" />
-        Save Draft
-      </Button>
-      <Button variant="outline" size="sm" onClick={handleClearForm} title="Clear Form">
-        <Trash2 className="h-4 w-4 mr-2" />
-        Clear Form
+      {!editMode && (
+        <>
+          <Button variant="outline" size="sm" onClick={handleSaveDraft} title="Save Draft">
+            <Save className="h-4 w-4 mr-2" />
+            Save Draft
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleClearForm} title="Clear Form">
+            <Trash2 className="h-4 w-4 mr-2" />
+            Clear Form
+          </Button>
+        </>
+      )}
+      <Button type="submit" size="sm" form="form-id" title="Create Item">
+        Create
       </Button>
       <Button variant="ghost" size="sm" onClick={() => setIsFullscreen(!isFullscreen)} 
               title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}>
@@ -693,6 +708,11 @@ useEffect(() => {
     </div>
   </DialogHeader>
 </div>
+
+{/* 表单区域 */}
+<form id="form-id" onSubmit={handleSubmit}>
+  {/* 表单内容 */}
+</form>
 ```
 
 #### 5. 用户提示
@@ -726,9 +746,11 @@ toast({
 **布局和显示**
 - [ ] 全屏显示模式（可切换）
 - [ ] 固定顶部按钮区域（sticky positioning）
-- [ ] 所有操作按钮在顶部右上角
+- [ ] 所有操作按钮在顶部右上角（包括提交按钮）
 - [ ] 滚动内容时按钮始终可见
 - [ ] 使用 flex 布局分离固定区和滚动区
+- [ ] 不添加取消按钮（用户可点击外部关闭）
+- [ ] 表单使用 id 属性，提交按钮使用 form 属性关联
 
 **数据持久化**
 - [ ] localStorage 数据持久化
@@ -744,6 +766,8 @@ toast({
 - [ ] 按钮添加 title 属性显示提示
 - [ ] 使用图标增强可识别性
 - [ ] 底部显示自动保存提示文本
+- [ ] 提交按钮文字简洁（Create/Update 而非 Create Item/Update Item）
+- [ ] 按钮顺序：辅助操作 → 主要操作 → 工具操作
 
 ### 注意事项
 
@@ -773,3 +797,8 @@ DialogContent (flex flex-col p-0)
 - 顶部区域: `sticky top-0 z-10 bg-background border-b px-6 py-4` - 固定定位
 - 按钮容器: `flex gap-2 shrink-0` - 防止按钮被压缩
 - 内容区域: `flex-1 overflow-y-auto px-6 py-4` - 可滚动区域
+
+**表单提交关联**：
+- 表单添加 `id` 属性：`<form id="product-form">`
+- 提交按钮使用 `form` 属性关联：`<Button type="submit" form="product-form">`
+- 这样按钮在顶部也能提交表单内容
