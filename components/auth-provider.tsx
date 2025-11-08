@@ -90,12 +90,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       console.log("Loading profile for user:", supabaseUser.id)
       
+      // 添加超时保护：5秒后如果还没有响应，就使用默认数据
+      const timeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Profile query timeout")), 5000)
+      )
+      
       // Fetch user profile from profiles table
-      const { data: profile, error } = await supabase
+      const profileQuery = supabase
         .from("profiles")
         .select("*")
         .eq("id", supabaseUser.id)
         .single()
+      
+      const { data: profile, error } = await Promise.race([
+        profileQuery,
+        timeout
+      ]) as any
 
       // 如果 profile 不存在（PGRST116错误），尝试创建一个
       if (error && error.code === "PGRST116") {
@@ -165,17 +175,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("Setting user data:", userData)
       setUser(userData)
       console.log("User data set successfully")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading user profile:", error)
-      // 即使发生异常，也要设置基本的用户数据，避免无限加载
+      console.log("Using fallback user data due to error:", error?.message)
+      
+      // 即使发生异常（包括超时），也要设置基本的用户数据，避免无限加载
       const userData: User = {
         id: supabaseUser.id,
         email: supabaseUser.email!,
-        firstName: supabaseUser.user_metadata?.first_name || "",
+        firstName: supabaseUser.user_metadata?.first_name || supabaseUser.email?.split("@")[0] || "User",
         lastName: supabaseUser.user_metadata?.last_name || "",
         company: undefined,
         role: "User",
       }
+      
+      console.log("Setting fallback user data:", userData)
       setUser(userData)
     }
   }
