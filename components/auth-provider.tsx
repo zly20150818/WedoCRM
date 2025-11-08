@@ -154,22 +154,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       console.log(`Loading profile for user: ${supabaseUser.id} (attempt ${retryCount + 1})`)
       
-      // 添加超时保护：5秒后如果还没有响应，尝试重试
-      const timeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Profile query timeout")), 5000)
-      )
-      
-      // Fetch user profile from profiles table
-      const profileQuery = supabase
+      // 直接查询，不使用过于严格的超时
+      // Supabase 客户端本身有默认超时机制
+      const { data: profile, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", supabaseUser.id)
         .single()
-      
-      const { data: profile, error } = await Promise.race([
-        profileQuery,
-        timeout
-      ]) as any
 
       // 如果 profile 不存在（PGRST116错误），尝试创建一个
       if (error && error.code === "PGRST116") {
@@ -277,15 +268,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       console.error("Error loading user profile:", error)
       
-      // 如果是超时且还没重试过，尝试重试一次
-      if (error.message === "Profile query timeout" && retryCount === 0) {
-        console.warn("Query timeout, retrying once...")
-        await new Promise(resolve => setTimeout(resolve, 1000)) // 等待1秒
-        return loadUserProfile(supabaseUser, 1) // 重试
-      }
-      
-      // 如果是网络错误或超时重试失败，使用基本数据继续（不阻塞用户）
-      if (error.message.includes("timeout") || error.message.includes("network") || error.message.includes("fetch")) {
+      // 对于网络错误，使用基本数据继续（不阻塞用户）
+      if (error.message?.includes("fetch") || error.message?.includes("network") || error.code === "ECONNREFUSED") {
         console.warn("Network issue detected, using fallback user data...")
         const userData: User = {
           id: supabaseUser.id,
@@ -299,9 +283,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log("Setting fallback user data:", userData)
         setUser(userData)
         
-        // 在后台异步尝试重新加载 profile
+        // 在后台异步尝试重新加载 profile（3秒后）
         setTimeout(async () => {
           try {
+            console.log("Attempting background profile refresh...")
             const { data: profile } = await supabase
               .from("profiles")
               .select("*")
@@ -322,7 +307,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } catch (bgError) {
             console.error("Background profile refresh failed:", bgError)
           }
-        }, 5000)
+        }, 3000) // 3秒后重试
         
         return
       }
