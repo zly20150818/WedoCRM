@@ -23,7 +23,9 @@
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "user:setup-admin": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-admin-user.ps1",
-    "user:setup-admin:bat": "scripts\\setup-admin-user.bat"
+    "user:setup-admin:bat": "scripts\\setup-admin-user.bat",
+    "auth:reset": "powershell -ExecutionPolicy Bypass -File ./scripts/reset-auth.ps1",
+    "auth:clear": "echo Please visit: http://localhost:3000/clear-auth"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",

@@ -20,27 +20,54 @@ export default function ClearAuthPage() {
   const clearAuth = async () => {
     setIsClearing(true)
     try {
-      // 1. 退出登录
-      await supabase.auth.signOut()
+      console.log("Step 1: Calling server-side clear API...")
+      // 1. 调用服务器端 API 清理
+      const response = await fetch("/api/auth/clear", {
+        method: "POST",
+      })
       
-      // 2. 清除 localStorage
+      if (response.ok) {
+        console.log("✓ Server-side clear successful")
+      }
+
+      console.log("Step 2: Signing out...")
+      // 2. 客户端退出登录
+      await supabase.auth.signOut({ scope: "local" })
+      
+      console.log("Step 3: Clearing browser storage...")
+      // 3. 清除 localStorage 和 sessionStorage
       if (typeof window !== "undefined") {
         localStorage.clear()
         sessionStorage.clear()
+        
+        // 清除所有 Supabase 相关的 localStorage 项
+        Object.keys(localStorage).forEach((key) => {
+          if (key.includes("supabase") || key.includes("sb-")) {
+            localStorage.removeItem(key)
+          }
+        })
       }
       
-      // 3. 清除所有相关的 cookies
-      document.cookie.split(";").forEach((c) => {
-        document.cookie = c
-          .replace(/^ +/, "")
-          .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/")
-      })
+      console.log("Step 4: Clearing cookies...")
+      // 4. 清除所有 cookies（更彻底）
+      const cookies = document.cookie.split(";")
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i]
+        const eqPos = cookie.indexOf("=")
+        const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim()
+        
+        // 尝试多种方式删除 cookie
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=localhost`
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=127.0.0.1`
+      }
 
+      console.log("✓ All clear operations completed")
       setIsCleared(true)
       
-      // 3秒后自动跳转到登录页
+      // 5秒后自动跳转到登录页
       setTimeout(() => {
-        router.push("/login")
+        window.location.href = "/login" // 使用 window.location 强制完全刷新
       }, 3000)
     } catch (error) {
       console.error("Error clearing auth:", error)
