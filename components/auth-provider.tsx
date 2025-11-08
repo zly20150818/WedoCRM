@@ -83,9 +83,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("id", supabaseUser.id)
         .single()
 
-      if (error && error.code !== "PGRST116") {
-        // PGRST116 means no rows returned, which is fine for new users
+      // 如果 profile 不存在（PGRST116错误），尝试创建一个
+      if (error && error.code === "PGRST116") {
+        console.warn("Profile not found, creating one...")
+        
+        // 尝试创建 profile
+        const { data: newProfile, error: insertError } = await supabase
+          .from("profiles")
+          .insert({
+            id: supabaseUser.id,
+            email: supabaseUser.email,
+            first_name: supabaseUser.user_metadata?.first_name || "",
+            last_name: supabaseUser.user_metadata?.last_name || "",
+            role: "User",
+            is_active: true,
+          })
+          .select()
+          .single()
+
+        if (insertError) {
+          console.error("Error creating profile:", insertError)
+        } else {
+          console.log("Profile created successfully:", newProfile)
+        }
+
+        // 使用新创建的 profile 或从 metadata 中获取数据
+        const userData: User = {
+          id: supabaseUser.id,
+          email: supabaseUser.email!,
+          firstName: newProfile?.first_name || supabaseUser.user_metadata?.first_name || "",
+          lastName: newProfile?.last_name || supabaseUser.user_metadata?.last_name || "",
+          company: newProfile?.company || undefined,
+          role: newProfile?.role || "User",
+        }
+
+        console.log("Setting user data (new profile):", userData)
+        setUser(userData)
+        return
+      }
+
+      if (error) {
         console.error("Error loading profile:", error)
+        // 即使有错误，也尝试用 auth metadata 创建用户对象
+        const userData: User = {
+          id: supabaseUser.id,
+          email: supabaseUser.email!,
+          firstName: supabaseUser.user_metadata?.first_name || "",
+          lastName: supabaseUser.user_metadata?.last_name || "",
+          company: undefined,
+          role: "User",
+        }
+        setUser(userData)
+        return
       }
 
       console.log("Profile loaded:", profile)
@@ -104,6 +153,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("User data set successfully")
     } catch (error) {
       console.error("Error loading user profile:", error)
+      // 即使发生异常，也要设置基本的用户数据，避免无限加载
+      const userData: User = {
+        id: supabaseUser.id,
+        email: supabaseUser.email!,
+        firstName: supabaseUser.user_metadata?.first_name || "",
+        lastName: supabaseUser.user_metadata?.last_name || "",
+        company: undefined,
+        role: "User",
+      }
+      setUser(userData)
     }
   }
 

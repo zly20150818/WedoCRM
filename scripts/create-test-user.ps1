@@ -64,19 +64,33 @@ try {
     Write-Host ""
 } catch {
     $ErrorMessage = $_.Exception.Message
-    Write-Host ""
-    Write-Host "ERROR: Failed to create user" -ForegroundColor Red
-    Write-Host $ErrorMessage -ForegroundColor Red
+    $StatusCode = $_.Exception.Response.StatusCode.value__
+    
     Write-Host ""
     
-    if ($ErrorMessage -like "*User already registered*") {
-        Write-Host "The user admin@fincrm.com already exists." -ForegroundColor Yellow
-        Write-Host "You can use these credentials to login:" -ForegroundColor Yellow
+    # 检查是否是 422 错误（用户已存在）
+    if ($StatusCode -eq 422 -or $ErrorMessage -like "*422*" -or $ErrorMessage -like "*User already registered*") {
+        Write-Host "==========================================" -ForegroundColor Yellow
+        Write-Host "User already exists!" -ForegroundColor Yellow
+        Write-Host "==========================================" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "The user admin@fincrm.com is already registered." -ForegroundColor Cyan
+        Write-Host "You can use these credentials to login:" -ForegroundColor Cyan
+        Write-Host ""
         Write-Host "Email: admin@fincrm.com" -ForegroundColor White
         Write-Host "Password: admin123" -ForegroundColor White
+        Write-Host ""
+        Write-Host "To check user role, run:" -ForegroundColor Gray
+        Write-Host 'scripts\make-admin.bat' -ForegroundColor Gray
+    } else {
+        Write-Host "ERROR: Failed to create user" -ForegroundColor Red
+        Write-Host $ErrorMessage -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Status Code: $StatusCode" -ForegroundColor Gray
     }
 }
 
 Write-Host ""
 Read-Host "Press Enter to exit"
+
 
