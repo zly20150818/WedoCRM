@@ -211,7 +211,7 @@ export function ProductDialog({
         packaging_info: values.packaging_info || null,
         is_active: values.is_active,
         notes: values.notes || null,
-        category_id: values.category_id || null,
+        category_id: values.category_id && values.category_id !== "none" ? values.category_id : null,
       }
 
       if (product) {
@@ -411,7 +411,7 @@ export function ProductDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {categories.map((category) => (
                           <SelectItem key={category.id} value={category.id}>
                             {category.name}
