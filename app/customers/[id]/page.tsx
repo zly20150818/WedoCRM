@@ -26,9 +26,21 @@ import {
   FileText,
   Users,
   Pencil,
+  Trash2,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { CustomerDialog } from "@/components/customers/customer-dialog"
+import { ContactDialog, Contact } from "@/components/customers/contact-dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 /**
  * 客户类型定义
@@ -57,21 +69,6 @@ interface Customer {
   updated_at: string
 }
 
-/**
- * 联系人类型定义
- */
-interface Contact {
-  id: string
-  customer_id: string
-  name: string
-  title: string | null
-  email: string | null
-  phone: string | null
-  wechat: string | null
-  is_primary: boolean
-  created_at: string
-  updated_at: string
-}
 
 /**
  * 客户详情页面
@@ -87,6 +84,10 @@ export default function CustomerDetailPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [contactDialogOpen, setContactDialogOpen] = useState(false)
+  const [editingContact, setEditingContact] = useState<Contact | null>(null)
+  const [deleteContactDialogOpen, setDeleteContactDialogOpen] = useState(false)
+  const [contactToDelete, setContactToDelete] = useState<Contact | null>(null)
 
   const customerId = params.id as string
 
@@ -153,6 +154,63 @@ export default function CustomerDetailPage() {
     loadCustomer()
     loadContacts()
   }, [customerId])
+
+  /**
+   * 打开新建联系人对话框
+   */
+  function handleAddContact() {
+    setEditingContact(null)
+    setContactDialogOpen(true)
+  }
+
+  /**
+   * 打开编辑联系人对话框
+   */
+  function handleEditContact(contact: Contact) {
+    setEditingContact(contact)
+    setContactDialogOpen(true)
+  }
+
+  /**
+   * 确认删除联系人
+   */
+  function handleDeleteContactClick(contact: Contact) {
+    setContactToDelete(contact)
+    setDeleteContactDialogOpen(true)
+  }
+
+  /**
+   * 执行删除联系人
+   */
+  async function handleDeleteContactConfirm() {
+    if (!contactToDelete) return
+
+    try {
+      const { error } = await supabase
+        .from("contacts")
+        .delete()
+        .eq("id", contactToDelete.id)
+
+      if (error) throw error
+
+      toast({
+        title: "Success",
+        description: "Contact deleted successfully",
+      })
+
+      loadContacts()
+    } catch (error) {
+      console.error("Error deleting contact:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete contact",
+        variant: "destructive",
+      })
+    } finally {
+      setDeleteContactDialogOpen(false)
+      setContactToDelete(null)
+    }
+  }
 
   /**
    * 获取状态徽章颜色
@@ -419,12 +477,12 @@ export default function CustomerDetailPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Contacts</CardTitle>
+                    <CardTitle>Contact Persons</CardTitle>
                     <CardDescription>
-                      Manage customer contact persons
+                      Manage contact persons for {customer.name}
                     </CardDescription>
                   </div>
-                  <Button>
+                  <Button onClick={handleAddContact}>
                     <Users className="h-4 w-4 mr-2" />
                     Add Contact
                   </Button>
@@ -432,21 +490,30 @@ export default function CustomerDetailPage() {
               </CardHeader>
               <CardContent>
                 {contacts.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No contacts found
+                  <div className="text-center py-12">
+                    <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground mb-4">
+                      No contact persons yet
+                    </p>
+                    <Button onClick={handleAddContact} variant="outline">
+                      <Users className="h-4 w-4 mr-2" />
+                      Add First Contact
+                    </Button>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {contacts.map((contact) => (
                       <div
                         key={contact.id}
-                        className="flex items-start justify-between p-4 border rounded-lg"
+                        className="flex items-start justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
                       >
-                        <div className="space-y-2">
+                        <div className="space-y-2 flex-1">
                           <div className="flex items-center gap-2">
-                            <h4 className="font-semibold">{contact.name}</h4>
+                            <h4 className="font-semibold text-lg">{contact.name}</h4>
                             {contact.is_primary && (
-                              <Badge variant="secondary">Primary</Badge>
+                              <Badge variant="default" className="bg-blue-500">
+                                Primary
+                              </Badge>
                             )}
                           </div>
                           {contact.title && (
@@ -456,22 +523,51 @@ export default function CustomerDetailPage() {
                           )}
                           <div className="flex flex-wrap gap-4 text-sm">
                             {contact.email && (
-                              <div className="flex items-center gap-1">
-                                <Mail className="h-3 w-3" />
-                                <span>{contact.email}</span>
+                              <div className="flex items-center gap-1.5 text-muted-foreground">
+                                <Mail className="h-4 w-4" />
+                                <a
+                                  href={`mailto:${contact.email}`}
+                                  className="hover:text-primary hover:underline"
+                                >
+                                  {contact.email}
+                                </a>
                               </div>
                             )}
                             {contact.phone && (
-                              <div className="flex items-center gap-1">
-                                <Phone className="h-3 w-3" />
-                                <span>{contact.phone}</span>
+                              <div className="flex items-center gap-1.5 text-muted-foreground">
+                                <Phone className="h-4 w-4" />
+                                <a
+                                  href={`tel:${contact.phone}`}
+                                  className="hover:text-primary hover:underline"
+                                >
+                                  {contact.phone}
+                                </a>
+                              </div>
+                            )}
+                            {contact.wechat && (
+                              <div className="flex items-center gap-1.5 text-muted-foreground">
+                                <Globe className="h-4 w-4" />
+                                <span>{contact.wechat}</span>
                               </div>
                             )}
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditContact(contact)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteContactClick(contact)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -518,6 +614,41 @@ export default function CustomerDetailPage() {
           customer={customer}
           onSuccess={loadCustomer}
         />
+
+        {/* 联系人对话框 */}
+        <ContactDialog
+          open={contactDialogOpen}
+          onOpenChange={setContactDialogOpen}
+          contact={editingContact}
+          customerId={customerId}
+          customerName={customer.name}
+          onSuccess={loadContacts}
+        />
+
+        {/* 删除联系人确认对话框 */}
+        <AlertDialog
+          open={deleteContactDialogOpen}
+          onOpenChange={setDeleteContactDialogOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Contact?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{contactToDelete?.name}"? This
+                action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteContactConfirm}
+                className="bg-red-500 hover:bg-red-600"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </MainLayout>
   )
