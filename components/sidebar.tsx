@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Building2,
+  Users,
 } from "lucide-react"
 
 const menuItems = [
@@ -17,6 +18,11 @@ const menuItems = [
     title: "Dashboard",
     href: "/dashboard",
     icon: BarChart3,
+  },
+  {
+    title: "Customers",
+    href: "/customers",
+    icon: Users,
   },
   {
     title: "Settings",
