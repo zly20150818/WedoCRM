@@ -115,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false)
         return {
           success: false,
-          error: "Supabase 配置未找到，请检查环境变量配置",
+          error: "Supabase configuration not found. Please check environment variables.",
         }
       }
 
@@ -128,18 +128,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Login error:", error)
         setIsLoading(false)
 
-        // 提供更友好的错误信息
-        let errorMessage = "登录失败"
+        // 提供更友好的错误信息（UI 显示用英文）
+        let errorMessage = "Login failed"
         if (error.message.includes("Invalid login credentials")) {
-          errorMessage = "邮箱或密码错误。如果您还没有账户，请先注册。"
+          errorMessage = "Invalid email or password. If you don't have an account, please register first."
         } else if (error.message.includes("Email not confirmed")) {
-          errorMessage = "请先验证您的邮箱。在本地开发环境中，请检查 Inbucket (http://localhost:54324) 获取验证邮件。"
+          errorMessage = "Please verify your email. For local development, check Inbucket at http://localhost:54324"
         } else if (error.message.includes("Too many requests")) {
-          errorMessage = "请求过于频繁，请稍后再试"
+          errorMessage = "Too many requests. Please try again later."
         } else if (error.message.includes("network") || error.message.includes("fetch")) {
-          errorMessage = "无法连接到 Supabase，请确保 Supabase 服务正在运行 (supabase start)"
+          errorMessage = "Cannot connect to Supabase. Please ensure Supabase is running (supabase start)"
         } else {
-          errorMessage = error.message || "登录失败，请稍后重试"
+          errorMessage = error.message || "Login failed. Please try again later."
         }
 
         return { success: false, error: errorMessage }
@@ -152,13 +152,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setIsLoading(false)
-      return { success: false, error: "登录失败，未获取到用户信息" }
+      return { success: false, error: "Login failed. User information not retrieved." }
     } catch (error: any) {
       console.error("Login error:", error)
       setIsLoading(false)
       return {
         success: false,
-        error: error?.message || "登录失败，请检查网络连接和 Supabase 配置",
+        error: error?.message || "Login failed. Please check network connection and Supabase configuration.",
       }
     }
   }
@@ -189,15 +189,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Registration error:", authError)
         setIsLoading(false)
 
-        let errorMessage = "注册失败"
+        let errorMessage = "Registration failed"
         if (authError.message.includes("User already registered")) {
-          errorMessage = "该邮箱已被注册，请直接登录"
+          errorMessage = "This email is already registered. Please login instead."
         } else if (authError.message.includes("Password")) {
-          errorMessage = "密码不符合要求，请使用至少 6 位字符"
+          errorMessage = "Password does not meet requirements. Please use at least 6 characters."
         } else if (authError.message.includes("Email")) {
-          errorMessage = "邮箱格式不正确"
+          errorMessage = "Invalid email format"
         } else {
-          errorMessage = authError.message || "注册失败，请稍后重试"
+          errorMessage = authError.message || "Registration failed. Please try again later."
         }
 
         return { success: false, error: errorMessage }
@@ -226,13 +226,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setIsLoading(false)
-      return { success: false, error: "注册失败，未创建用户" }
+      return { success: false, error: "Registration failed. User not created." }
     } catch (error: any) {
       console.error("Registration error:", error)
       setIsLoading(false)
       return {
         success: false,
-        error: error?.message || "注册失败，请检查网络连接",
+        error: error?.message || "Registration failed. Please check network connection.",
       }
     }
   }
