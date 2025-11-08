@@ -1,0 +1,556 @@
+---
+alwaysApply: true
+---
+
+# FinCRM 项目开发规范
+
+## 语言规范
+
+### UI 界面文本
+- ✅ **所有用户可见的界面文本必须使用英文**
+  - 按钮文本：Login, Register, Submit, Cancel, Save, Delete 等
+  - 表单标签：Email, Password, First Name, Last Name 等
+  - 页面标题：Dashboard, User Profile, Settings 等
+  - 提示信息：Success, Error, Warning 等
+  - 表格标题：Name, Status, Created At, Actions 等
+
+### 代码注释
+- ✅ **所有代码注释必须使用中文**
+  - 函数说明、参数说明、返回值说明用中文
+  - 复杂逻辑的解释用中文
+  - TODO、FIXME 等标记用中文描述
+  - 文件头部说明用中文
+
+### 示例
+
+**正确示例** ✅：
+```typescript
+/**
+ * 用户登录函数
+ * @param email - 用户邮箱
+ * @param password - 用户密码
+ * @returns 返回登录结果
+ */
+async function login(email: string, password: string) {
+  // 验证邮箱格式
+  if (!isValidEmail(email)) {
+    return { error: "Invalid email format" }  // UI 显示用英文
+  }
+  
+  // 调用 Supabase 认证
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
+  
+  if (error) {
+    return { error: "Login failed" }  // UI 显示用英文
+  }
+  
+  return { success: true, message: "Login successful" }
+}
+```
+
+**错误示例** ❌：
+```typescript
+// Bad: UI 文本用中文，注释用英文
+async function login(email: string, password: string) {
+  // Validate email format
+  if (!isValidEmail(email)) {
+    return { error: "邮箱格式错误" }  // ❌ UI 不应该用中文
+  }
+  return { success: true, message: "登录成功" }  // ❌ UI 不应该用中文
+}
+```
+
+## 技术栈规范
+
+### Next.js (App Router)
+- 使用 App Router（不是 Pages Router）
+- 服务器组件优先，需要交互时使用 "use client"
+- 使用 TypeScript，所有文件必须有类型定义
+
+### Supabase 集成
+- 使用 Cookie-based 认证（不使用 localStorage）
+- 客户端：使用 `createClient()` from `@/lib/supabase/client`
+- 服务器端：使用 `createClient()` from `@/lib/supabase/server`
+- 启用 Row Level Security (RLS)
+
+### UI 组件
+- 使用 shadcn/ui 组件库
+- 使用 Tailwind CSS 进行样式定义
+- 响应式设计优先（移动端优先）
+
+### 代码风格
+- 使用 ES6+ 语法
+- 优先使用 async/await 而不是 Promise.then()
+- 组件使用函数式组件（不使用 Class 组件）
+- Props 必须定义 TypeScript 接口
+
+## 文件命名规范
+
+- 组件文件：`kebab-case.tsx` (例如：`user-profile.tsx`)
+- 工具函数：`kebab-case.ts` (例如：`format-date.ts`)
+- 类型定义：`kebab-case.ts` (例如：`user-types.ts`)
+- 页面路由：`page.tsx` (App Router 约定)
+
+## 错误处理规范
+
+- 所有异步操作必须有错误处理
+- 错误信息对用户显示时用英文
+- 错误日志可以用中文注释说明错误原因
+- 使用 try-catch 或 error 返回值
+
+## 安全规范
+
+- 永远不要在客户端存储敏感信息
+- 使用环境变量存储密钥
+- API 调用使用 Supabase RLS 保护
+- 用户输入必须验证和清理
+
+## 示例：完整的组件
+
+```typescript
+"use client"
+
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { useAuth } from "@/components/auth-provider"
+
+interface LoginFormProps {
+  onSuccess?: () => void
+}
+
+/**
+ * 登录表单组件
+ * 提供邮箱和密码登录功能
+ */
+export function LoginForm({ onSuccess }: LoginFormProps) {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const { login, isLoading } = useAuth()
+
+  /**
+   * 处理表单提交
+   */
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // 清除之前的错误
+    setError(null)
+    
+    // 调用登录函数
+    const result = await login(email, password)
+    
+    if (result.success) {
+      // 登录成功，执行回调
+      onSuccess?.()
+    } else {
+      // 显示错误信息（英文）
+      setError(result.error || "Login failed")
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* 邮箱输入框 */}
+      <div>
+        <label htmlFor="email" className="text-sm font-medium">
+          Email
+        </label>
+        <Input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Enter your email"
+          required
+        />
+      </div>
+
+      {/* 密码输入框 */}
+      <div>
+        <label htmlFor="password" className="text-sm font-medium">
+          Password
+        </label>
+        <Input
+          id="password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Enter your password"
+          required
+        />
+      </div>
+
+      {/* 错误提示 */}
+      {error && (
+        <div className="text-sm text-red-500">
+          {error}
+        </div>
+      )}
+
+      {/* 提交按钮 */}
+      <Button type="submit" disabled={isLoading} className="w-full">
+        {isLoading ? "Loading..." : "Login"}
+      </Button>
+    </form>
+  )
+}
+```
+
+## 终端命令规范
+
+### Windows 环境
+- ✅ **必须使用 Windows CMD/PowerShell 命令**
+- ❌ **不要使用 Unix/Linux 命令**（如 ls, cat, rm 等）
+
+### 常用命令对照表
+
+| 操作 | ❌ Unix/Linux | ✅ Windows CMD | ✅ PowerShell |
+|------|--------------|---------------|--------------|
+| 列出文件 | `ls` | `dir` | `Get-ChildItem` 或 `ls` |
+| 查看文件 | `cat file.txt` | `type file.txt` | `Get-Content file.txt` |
+| 删除文件 | `rm file.txt` | `del file.txt` | `Remove-Item file.txt` |
+| 删除目录 | `rm -rf dir/` | `rmdir /s /q dir` | `Remove-Item -Recurse -Force dir` |
+| 复制文件 | `cp src dst` | `copy src dst` | `Copy-Item src dst` |
+| 移动文件 | `mv src dst` | `move src dst` | `Move-Item src dst` |
+| 创建目录 | `mkdir dir` | `mkdir dir` | `New-Item -ItemType Directory dir` |
+| 查找进程 | `ps aux \| grep node` | `tasklist \| findstr node` | `Get-Process \| Where-Object {$_.Name -like "*node*"}` |
+| 杀死进程 | `kill -9 PID` | `taskkill /F /PID PID` | `Stop-Process -Id PID -Force` |
+| 查看端口 | `netstat -tulpn` | `netstat -ano` | `Get-NetTCPConnection` |
+| 设置环境变量 | `export VAR=value` | `set VAR=value` | `$env:VAR="value"` |
+| 清屏 | `clear` | `cls` | `Clear-Host` 或 `cls` |
+| 当前目录 | `pwd` | `cd` | `Get-Location` 或 `pwd` |
+| 命令历史 | `history` | `doskey /history` | `Get-History` 或 `h` |
+
+### 正确示例 ✅
+
+```powershell
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
+
+# 清理构建缓存（PowerShell）
+Remove-Item -Recurse -Force .next
+Remove-Item -Recurse -Force node_modules\.cache
+
+# 或使用 CMD
+rmdir /s /q .next
+rmdir /s /q node_modules\.cache
+
+# 查看 Supabase 状态
+supabase status
+
+# 查看运行中的 Node 进程
+tasklist | findstr node
+
+# 或使用 PowerShell
+Get-Process | Where-Object {$_.Name -like "*node*"}
+```
+
+### 错误示例 ❌
+
+```bash
+# ❌ 不要使用 Unix 命令
+rm -rf .next
+ls -la
+cat package.json
+ps aux | grep node
+kill -9 1234
+```
+
+### 开发服务器启动规范
+
+**在运行 `npm run dev` 之前，必须先关闭 3000 端口**
+
+#### 方法 1: 查找并关闭端口进程（PowerShell）
+```powershell
+# 1. 查找占用 3000 端口的进程
+netstat -ano | findstr :3000
+
+# 2. 根据 PID 关闭进程
+taskkill /F /PID <PID>
+
+# 或使用 PowerShell 一键关闭
+Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+
+# 3. 启动开发服务器
+npm run dev
+```
+
+#### 方法 2: 使用自动化脚本
+
+创建 `scripts/start-dev.ps1`：
+```powershell
+# 关闭 3000 端口
+Write-Host "Checking port 3000..." -ForegroundColor Yellow
+$process = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
+if ($process) {
+    Write-Host "Closing port 3000..." -ForegroundColor Yellow
+    Stop-Process -Id $process.OwningProcess -Force
+    Write-Host "Port 3000 closed." -ForegroundColor Green
+    Start-Sleep -Seconds 1
+} else {
+    Write-Host "Port 3000 is available." -ForegroundColor Green
+}
+
+# 启动开发服务器
+Write-Host "Starting development server..." -ForegroundColor Green
+npm run dev
+```
+
+使用方法：
+```cmd
+scripts\start-dev.bat
+```
+
+#### 方法 3: CMD 命令
+```cmd
+REM 查找 3000 端口进程
+netstat -ano | findstr :3000
+
+REM 关闭进程（替换 <PID> 为实际进程 ID）
+taskkill /F /PID <PID>
+
+REM 启动开发服务器
+npm run dev
+```
+
+## 文档编写规范
+
+### 基本原则
+- ❌ **不要主动创建文档**，除非用户明确要求
+- ✅ **所有文档必须放在 `docs/` 目录**
+- ✅ 文档文件名使用 `kebab-case.md` 格式
+- ✅ 文档内容可以使用中文或英文，根据用户需求决定
+
+### 不要创建的文档类型（除非用户要求）
+- ❌ README.md（项目已有）
+- ❌ API 文档
+- ❌ 使用指南
+- ❌ 开发日志
+- ❌ 更新日志 (CHANGELOG.md)
+- ❌ 贡献指南 (CONTRIBUTING.md)
+
+### 允许创建的情况
+1. **用户明确要求**：
+   - "写一个 XX 功能的文档"
+   - "创建一个使用说明"
+   - "帮我生成 API 文档"
+
+2. **代码注释优先**：
+   - 复杂逻辑用注释说明，不需要单独文档
+   - 函数说明用 JSDoc/TSDoc 注释
+   - 组件说明用内联注释
+
+### 文档存放位置
+
+```
+D:\FinCRM\
+├── docs/                    # ✅ 所有文档放这里
+│   ├── api/                # API 文档
+│   │   ├── authentication.md
+│   │   └── user-management.md
+│   ├── guides/             # 使用指南
+│   │   ├── getting-started.md
+│   │   └── deployment.md
+│   ├── architecture/       # 架构文档
+│   │   └── system-design.md
+│   └── development/        # 开发文档
+│       └── coding-standards.md
+├── README.md               # ✅ 项目根目录（已存在）
+├── CHANGELOG.md            # ✅ 项目根目录（如需要）
+└── ...
+```
+
+### 正确流程示例
+
+**场景 1：用户未要求创建文档** ✅
+```
+用户："帮我实现用户登录功能"
+AI：
+1. 创建组件代码
+2. 添加代码注释
+3. ❌ 不创建额外的文档
+```
+
+**场景 2：用户明确要求文档** ✅
+```
+用户："实现登录功能，并写一个使用文档"
+AI：
+1. 创建组件代码
+2. 创建 docs/guides/login-guide.md
+3. 在文档中说明使用方法
+```
+
+**场景 3：复杂功能说明** ✅
+```
+用户："这个组件太复杂了，说明一下"
+AI：
+1. 在代码中添加详细注释
+2. 如果注释不够，再询问是否需要创建文档
+3. 用户同意后，创建 docs/components/component-name.md
+```
+
+## 项目特定规范
+
+### 目录结构约定
+```
+D:\FinCRM\
+├── app/                # Next.js App Router 页面
+├── components/         # React 组件
+├── lib/               # 工具函数和库
+├── docs/              # ✅ 文档目录（新建文档放这里）
+├── supabase/          # Supabase 配置和迁移
+├── public/            # 静态资源
+└── scripts/           # 脚本文件
+```
+
+### Git 提交规范
+- 提交信息使用英文
+- 格式：`type: description`
+- 常用类型：
+  - `feat`: 新功能
+  - `fix`: 修复 bug
+  - `docs`: 文档更新
+  - `style`: 代码格式调整
+  - `refactor`: 代码重构
+  - `test`: 测试相关
+  - `chore`: 构建或辅助工具更改
+
+### 示例
+```bash
+# ✅ 正确
+git commit -m "feat: add user login component"
+git commit -m "fix: resolve authentication token issue"
+git commit -m "docs: update API documentation"
+
+# ❌ 错误
+git commit -m "添加登录功能"
+git commit -m "修复了一些bug"
+```
+
+## 数据库开发规范
+
+### 开发阶段 vs 生产阶段
+
+#### 开发阶段（推荐做法）✅
+
+**原则**：数据不重要，快速迭代优先
+
+- ✅ **直接修改 SQL 文件**（`supabase/migrations/*.sql`）
+- ✅ **修改种子数据**（`supabase/seed.sql`）
+- ✅ **完全重置数据库**，不创建新的迁移文件
+- ✅ 使用 `supabase db reset` 清空并重新初始化
+
+**操作流程**：
+```powershell
+# 1. 修改现有 SQL 文件（如 001_initial_schema.sql）
+# 2. 修改种子数据（如有需要）
+# 3. 重置数据库
+supabase db reset
+
+# 确认重置（会清空所有数据）
+# 输入 'y' 确认
+```
+
+**优点**：
+- 🚀 快速迭代，无需管理复杂的迁移历史
+- 🧹 保持迁移文件简洁，易于理解
+- 🔄 随时可以从头开始，避免迁移冲突
+
+**注意事项**：
+- ⚠️ 重置会清空所有测试数据
+- ⚠️ 需要重新创建测试用户
+- ⚠️ 仅适用于本地开发环境
+
+#### 生产阶段（必须遵循）⚠️
+
+**原则**：保护用户数据，可追溯变更
+
+- ✅ **创建新的迁移文件**（递增编号）
+- ✅ **只允许向前迁移**（additive changes）
+- ❌ **禁止修改已部署的迁移文件**
+- ❌ **禁止使用 db reset**（会删除用户数据）
+
+**操作流程**：
+```powershell
+# 1. 创建新的迁移文件
+supabase migration new add_user_avatar_column
+
+# 2. 编写迁移 SQL
+# supabase/migrations/20240101000000_add_user_avatar_column.sql
+
+# 3. 测试迁移
+supabase db reset  # 本地测试
+
+# 4. 部署到生产
+supabase db push  # 应用到远程数据库
+```
+
+### 常用数据库命令
+
+```powershell
+# 重置本地数据库（开发阶段）
+supabase db reset
+
+# 查看数据库状态
+supabase status
+
+# 生成 TypeScript 类型（在修改表结构后）
+supabase gen types typescript --local > lib/supabase/types.ts
+
+# 推送到远程数据库（生产环境）
+supabase db push
+
+# 从远程拉取迁移
+supabase db pull
+```
+
+### 迁移文件命名规范
+
+```
+supabase/migrations/
+├── 001_initial_schema.sql           # 初始数据库架构
+├── 002_supplementary_tables.sql     # 补充表
+├── 003_auto_create_profile.sql      # 自动创建 profile 触发器
+└── 004_add_new_feature.sql          # 新功能（如需要）
+```
+
+### 种子数据规范
+
+在 `supabase/seed.sql` 中添加测试数据：
+
+```sql
+-- 插入测试用户（开发环境）
+INSERT INTO profiles (id, email, first_name, last_name, role)
+VALUES 
+  ('uuid-1', 'admin@example.com', 'Admin', 'User', 'Admin'),
+  ('uuid-2', 'user@example.com', 'Test', 'User', 'User')
+ON CONFLICT (id) DO NOTHING;
+```
+
+### 开发工作流总结
+
+```powershell
+# 典型的开发流程
+# 1. 修改数据库架构
+# 编辑 supabase/migrations/001_initial_schema.sql
+
+# 2. 修改种子数据（可选）
+# 编辑 supabase/seed.sql
+
+# 3. 重置数据库
+supabase db reset
+
+# 4. 更新 TypeScript 类型
+supabase gen types typescript --local > lib/supabase/types.ts
+
+# 5. 重启开发服务器
+npm run dev:safe
+```

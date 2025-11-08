@@ -1,0 +1,2057 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 系统与用户
+model User {
+  id             String           @id @default(cuid())
+  email          String           @unique
+  password       String
+  firstName      String
+  lastName       String
+  company        String?
+  role           String           @default("User")
+  avatar         String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  isActive       Boolean          @default(true)
+  
+  // 关系
+  customers      Customer[]       @relation("CustomerOwner")
+  leads          Lead[]
+  projects       Project[]
+  createdTasks   Task[]           @relation("CreatedTasks")
+  assignedTasks  Task[]           @relation("AssignedTasks")
+  roles          Role[]           @relation("UserRoles")
+  purchaseRequestsRequested PurchaseRequest[] @relation("PurchaseRequestRequester")
+  purchaseRequestsApproved  PurchaseRequest[] @relation("PurchaseRequestApprover")
+  workflowNodeInstances    WorkflowNodeInstance[] @relation("WorkflowNodeAssignee")
+  workflowActions          WorkflowAction[]       @relation("WorkflowActionPerformer")
+  communicationLogs        CommunicationLog[]     @relation("CommunicationLogUser")
+  supplierRatings          SupplierRating[]       @relation("SupplierRatingUser")
+  projectDocuments         ProjectDocument[]      @relation("ProjectDocumentUploader")
+  files                    File[]
+  inspections              Inspection[]
+  
+  // 审计日志
+  auditLogs      AuditLog[]
+  
+  // 会话
+  sessions       Session[]
+  
+  // 审批相关
+  approvalsRequested  Approval[]        @relation("ApprovalRequester")
+  approvalsAsCurrent  Approval[]        @relation("CurrentApprover")
+  approvalHistory     ApprovalHistory[] @relation("ApprovalHistoryUser")
+  notifications       Notification[]    @relation("UserNotifications")
+  
+  // 财务相关
+  paymentReconciliations PaymentReconciliation[] @relation("PaymentReconciler")
+  profitCalculations  ProjectProfitDetail[] @relation("ProfitCalculator")
+  
+  // 异常处理
+  exceptionsAssigned  Exception[]       @relation("ExceptionAssignee")
+  exceptionHistory    ExceptionHistory[] @relation("ExceptionHistoryUser")
+  
+  // 用户设置
+  settings            UserSetting?
+  
+  // RFQ发送记录
+  rfqsSent            RFQRecord[]  @relation("RFQSender")
+}
+
+model Role {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  users       User[] @relation("UserRoles")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// 注意：Permission 和 RolePermission 表已删除
+// 权限配置现在在代码中管理：lib/role-permissions.ts
+// 不再需要数据库表来存储权限
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  userId       String?
+  operation    String   // CREATE, UPDATE, DELETE, READ
+  entityType   String   // User, Project, Customer, etc.
+  entityId     String?
+  before       Json?    // JSON of previous state
+  after        Json?    // JSON of new state
+  timestamp    DateTime @default(now())
+  ipAddress    String?
+  userAgent    String?
+  
+  user         User?    @relation(fields: [userId], references: [id])
+}
+
+// 客户与联系人
+model Customer {
+  id                String             @id @default(cuid())
+  name              String             // 公司名称/简称
+  companyFullName   String?            // 公司全称
+  email             String?
+  phone             String?
+  country           String?
+  address           String?
+  creditLevel       String?            // 信用等级：AA, A, B, C
+  taxId             String?            // 税号
+  currency          String?            @default("USD") // 货币类型
+  language          String?            @default("en") // 语言
+  ndaUrl            String?            // NDA文件URL
+  companyLogo       String?            // 公司Logo URL
+  segment           String?            // Potential, Lead, Customer, VIP
+  grade             String?            // A, B, C, D (保留用于向后兼容，实际使用 creditLevel)
+  ownerId           String?
+  tags              String[]           // 标签
+  status            String             @default("Active")
+  notes             String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  
+  // 关系
+  owner             User?              @relation("CustomerOwner", fields: [ownerId], references: [id])
+  contacts          Contact[]
+  projects          Project[]
+  quotations        Quotation[]
+  contracts         Contract[]         @relation("CustomerContracts")
+  salesOrders       SalesOrder[]       @relation("CustomerSalesOrders")
+  communicationLogs CommunicationLog[]
+  customerTags      Tag[]              @relation("CustomerTags")
+  customerPOs       CustomerPO[]       @relation("CustomerPOs")
+  proformaInvoices  ProformaInvoice[]  @relation("CustomerPIs")
+}
+
+model Contact {
+  id          String   @id @default(cuid())
+  customerId  String
+  name        String
+  title       String?
+  email       String?
+  phone       String?
+  wechat      String?
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  customer    Customer @relation(fields: [customerId], references: [id])
+}
+
+// 线索/潜在客户
+model Lead {
+  id              String    @id @default(cuid())
+  name            String    // 联系人姓名
+  company         String    // 公司名称
+  title           String?   // 职位
+  email           String?
+  phone           String?
+  source          String?   // 来源：Website, Referral, Cold Call, Social Media, Event, Other
+  status          String    @default("New") // New, Qualified, Proposal, Negotiation, Closed Won, Closed Lost
+  priority        String    @default("Medium") // High, Medium, Low
+  estimatedValue  Float?    // 预估价值
+  ownerId         String    // 负责人
+  notes           String?   // 备注
+  lastContactedAt DateTime? // 最后联系时间
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  owner           User      @relation(fields: [ownerId], references: [id])
+  projects        Project[] // 从线索转化的项目
+}
+
+model CommunicationLog {
+  id         String   @id @default(cuid())
+  customerId String
+  channel    String   // email, phone, meeting, other
+  content    String
+  timestamp  DateTime @default(now())
+  createdBy  String?
+  
+  customer   Customer @relation(fields: [customerId], references: [id])
+  user       User?    @relation("CommunicationLogUser", fields: [createdBy], references: [id])
+}
+
+// 项目与工作流
+model Project {
+  id              String           @id @default(cuid()) // 在实际实现中，这将被格式化为类似 PROJ-2025-001 的形式
+  projectNumber   String           @unique // 自动生成的项目编号
+  name            String
+  description     String?
+  customerId      String
+  ownerId         String
+  leadId          String?          // 可选的线索ID，项目可能从线索转化而来
+  projectType     String           @default("Customized") // Standard(标准品), Customized(定制品), Repeat(老客户复购)
+  stageFlow       String?          // JSON格式存储该项目的阶段流程，例如: ["Prospecting","Sample","Quotation","Contract","Order","Delivery","Completed"]
+  targetMargin    Float?           // 目标利润率
+  
+  // 预算（统一以人民币计）
+  budget          Float?           // 预算
+  budgetCurrency  String?          @default("CNY") // 预算货币，统一为人民币
+  estimatedValue  Float?           // 预估销售额（客户货币）
+  currency        String?          @default("USD") // 客户货币
+  
+  startDate       DateTime?
+  endDate         DateTime?
+  status          String           @default("Active") // Active, Completed, Cancelled, OnHold
+  stage           String           @default("Prospecting") // Prospecting, Sample, Quotation, Contract, Order, Delivery, Completed
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  // 关系
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  owner           User             @relation(fields: [ownerId], references: [id])
+  lead            Lead?            @relation(fields: [leadId], references: [id])
+  milestones      Milestone[]
+  documents       ProjectDocument[]
+  samples         Sample[]
+  quotations      Quotation[]
+  contracts       Contract[]
+  salesOrders     SalesOrder[]
+  purchaseOrders  PurchaseOrder[]
+  purchaseRequests PurchaseRequest[] @relation("ProjectPurchaseRequests")
+  workflowInstances WorkflowInstance[]
+  invoices        Invoice[]
+  payments        Payment[]
+  tasks           Task[]
+  costs           ProjectCost[]
+  profitReports   ProjectProfitReport[]
+  tags            Tag[]            @relation("ProjectTags")
+  customerPOs     CustomerPO[]
+  proformaInvoices ProformaInvoice[]
+  shippingBookings ShippingBooking[]
+  billsOfLading   BillOfLading[]
+  commercialInvoices CommercialInvoice[]
+  packingLists    PackingList[]
+  shippingTrackings ShippingTracking[]
+  paymentReconciliations PaymentReconciliation[]
+  profitDetails   ProjectProfitDetail[] @relation("ProjectProfitDetails")
+  exceptions      Exception[]
+  rfqRecords      RFQRecord[]  // RFQ发送记录
+  products        Product[]            @relation("ProjectProducts") // 关联的产品
+}
+
+model WorkflowDefinition {
+  id          String    @id @default(cuid())
+  name        String
+  version     String    @default("1.0")
+  description String?
+  jsonSchema  Json      // 工作流定义JSON
+  nodes       Json[]    // 节点定义
+  edges       Json[]    // 边定义
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  instances   WorkflowInstance[]
+}
+
+model WorkflowInstance {
+  id             String           @id @default(cuid())
+  definitionId   String
+  projectId      String
+  status         String           @default("Active") // Active, Completed, Cancelled
+  currentContext Json?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  completedAt    DateTime?
+  
+  definition     WorkflowDefinition @relation(fields: [definitionId], references: [id])
+  project        Project            @relation(fields: [projectId], references: [id])
+  nodes          WorkflowNodeInstance[]
+  actions        WorkflowAction[]
+}
+
+model WorkflowNodeInstance {
+  id          String   @id @default(cuid())
+  instanceId  String
+  nodeId      String   // 对应定义中的节点ID
+  status      String   @default("Pending") // Pending, InProgress, Completed, Rejected
+  assignedTo  String?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  instance    WorkflowInstance @relation(fields: [instanceId], references: [id])
+  assignee    User?            @relation("WorkflowNodeAssignee", fields: [assignedTo], references: [id])
+}
+
+model WorkflowAction {
+  id         String   @id @default(cuid())
+  instanceId String
+  nodeId     String
+  action     String   // complete, reject, assign, skip
+  performedBy String
+  payload    Json?
+  createdAt  DateTime @default(now())
+  
+  instance   WorkflowInstance @relation(fields: [instanceId], references: [id])
+  performer  User             @relation("WorkflowActionPerformer", fields: [performedBy], references: [id])
+}
+
+model ProjectDocument {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  path        String   // 文件路径
+  size        Int      // 文件大小（字节）
+  type        String   // 文件类型（扩展名：pdf, docx, xlsx等）
+  
+  // 增强的分类管理
+  category    String   @default("Other") // Requirements, Design, Business, Quality, Logistics, Communication, Other
+  tags        String[] @default([])      // 标签数组，支持多标签
+  
+  // 版本控制
+  version     String   @default("1.0")   // 文档版本号
+  parentId    String?  // 父文档ID（用于版本链）
+  isLatest    Boolean  @default(true)    // 是否为最新版本
+  
+  // 文档属性
+  description String?  // 文档描述
+  visibility  String   @default("Project") // Project, Customer, Internal, Public
+  status      String   @default("Active")  // Active, Archived, Deleted
+  
+  // 元数据
+  uploadedBy  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  archivedAt  DateTime? // 归档时间
+  
+  // 关系
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploader    User     @relation("ProjectDocumentUploader", fields: [uploadedBy], references: [id])
+  parent      ProjectDocument? @relation("DocumentVersions", fields: [parentId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  versions    ProjectDocument[] @relation("DocumentVersions")
+}
+
+model Milestone {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  description String?
+  plannedAt   DateTime
+  actualAt    DateTime?
+  status      String   @default("Pending") // Pending, InProgress, Completed, Delayed
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  project     Project  @relation(fields: [projectId], references: [id])
+}
+
+// 销售（报价/合同/订单）
+model Quotation {
+  id              String           @id @default(cuid())
+  quotationNumber String           @unique // 报价单编号
+  projectId       String
+  customerId      String
+  
+  // 客户货币（报价时使用的货币）
+  currency        String           @default("USD") // 货币类型
+  
+  // 基准货币（内部核算用人民币）
+  baseCurrency    String           @default("CNY") // 基准货币，统一为人民币
+  exchangeRate    Float            @default(7.0) // 报价时汇率
+  exchangeDate    DateTime         @default(now()) // 汇率日期
+  
+  // 贸易条款和物流信息
+  incoterm        String?          // FOB, CIF, EXW等贸易条款
+  portOfLoading   String?          // 起运港
+  portOfDestination String?        // 目的港
+  shippingMethod  String?          // 运输方式: Sea, Air, Express, Rail, Road
+  
+  validUntil      DateTime         // 有效期
+  deliveryDate    DateTime?        // 交期
+  status          String           @default("Draft") // Draft, Sent, Accepted, Rejected, Expired
+  version         String           @default("1.0")
+  notes           String?
+  terms           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  acceptedAt      DateTime?
+  sentAt          DateTime?
+  rejectedAt      DateTime?
+  
+  project         Project          @relation(fields: [projectId], references: [id])
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  items           QuotationItem[]
+  contracts       Contract[]       // 从报价生成的合同
+  costs           QuotationCost[]  // 报价费用
+  inquiries       LogisticsInquiry[] // 物流询价记录
+  customerPOs     CustomerPO[]     @relation("CustomerPOs") // 关联的客户PO
+  proformaInvoices ProformaInvoice[] @relation("ProformaInvoices") // 生成的形式发票
+}
+
+model QuotationItem {
+  id            String    @id @default(cuid())
+  quotationId   String
+  partNumber    String
+  description   String
+  quantity      Float
+  
+  // 客户货币单价
+  unitPrice     Float
+  
+  // 基准货币单价（人民币）
+  baseUnitPrice Float
+  
+  taxRate       Float?    @default(0.0)
+  createdAt     DateTime  @default(now())
+  
+  quotation     Quotation @relation(fields: [quotationId], references: [id])
+}
+
+model Contract {
+  id             String           @id @default(cuid())
+  contractNumber String           @unique // 合同编号
+  projectId      String
+  quotationId    String?
+  piId           String?          // 关联形式发票
+  customerId     String?
+  title          String
+  description    String?
+  parties        Json             // 合同双方信息
+  terms          String           // 合同条款
+  
+  // 合同金额（客户货币）
+  totalValue     Float?
+  currency       String           @default("USD")
+  
+  // 合同金额（基准货币 - 人民币）
+  baseTotalValue Float?
+  baseCurrency   String           @default("CNY")
+  exchangeRate   Float?           @default(7.0)
+  exchangeDate   DateTime?        @default(now())
+  
+  effectiveAt    DateTime         // 生效日期
+  expiresAt      DateTime?
+  status         String           @default("Draft") // Draft, Pending, Signed, Active, Expired, Terminated
+  signedAt       DateTime?
+  signedBy       String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  
+  project        Project          @relation(fields: [projectId], references: [id])
+  quotation      Quotation?       @relation(fields: [quotationId], references: [id])
+  proformaInvoice ProformaInvoice? @relation("PIContracts", fields: [piId], references: [id])
+  customer       Customer?        @relation("CustomerContracts", fields: [customerId], references: [id])
+  salesOrders    SalesOrder[]
+}
+
+// 客户PO（采购订单）- 客户发给我们的订单
+model CustomerPO {
+  id              String           @id @default(cuid())
+  poNumber        String           @unique // 客户PO编号
+  projectId       String?          // 关联项目
+  customerId      String           // 客户ID
+  quotationId     String?          // 关联报价单
+  
+  // PO明细（JSON格式）
+  items           Json             // [{ partNumber, description, quantity, unitPrice, amount }]
+  
+  // 客户货币金额
+  totalAmount     Float
+  currency        String           @default("USD")
+  
+  // 基准货币金额（人民币）
+  baseTotalAmount Float
+  baseCurrency    String           @default("CNY")
+  exchangeRate    Float            @default(7.0)
+  exchangeDate    DateTime         @default(now())
+  
+  // 交易条款
+  paymentTerms    String?          // 付款条款
+  deliveryTerms   String?          // 交货条款
+  incoterm        String?          // 贸易术语
+  deliveryDate    DateTime?        // 交货日期
+  
+  // PO状态
+  status          String           @default("Received") // Received, Confirmed, Processing, Completed, Cancelled
+  
+  // 附件和备注
+  attachments     Json?            // PO文件附件 URLs
+  notes           String?          // 备注
+  
+  // 时间戳
+  receivedAt      DateTime         @default(now()) // PO接收时间
+  confirmedAt     DateTime?        // PO确认时间
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  // 关系
+  project         Project?         @relation(fields: [projectId], references: [id])
+  customer        Customer         @relation("CustomerPOs", fields: [customerId], references: [id])
+  quotation       Quotation?       @relation("CustomerPOs", fields: [quotationId], references: [id])
+  proformaInvoices ProformaInvoice[] // 生成的PI
+}
+
+// 形式发票（Proforma Invoice）- 我们发给客户的形式发票
+model ProformaInvoice {
+  id              String           @id @default(cuid())
+  piNumber        String           @unique // PI编号
+  projectId       String?          // 关联项目
+  customerId      String           // 客户ID
+  quotationId     String?          // 关联报价单
+  customerPOId    String?          // 关联客户PO
+  
+  // PI明细（JSON格式）
+  items           Json             // [{ partNumber, description, quantity, unitPrice, amount }]
+  
+  // 客户货币金额
+  totalAmount     Float
+  currency        String           @default("USD")
+  
+  // 基准货币金额（人民币）
+  baseTotalAmount Float
+  baseCurrency    String           @default("CNY")
+  exchangeRate    Float            @default(7.0)
+  exchangeDate    DateTime         @default(now())
+  
+  // 交易条款
+  paymentTerms    String?          // 付款条款：如 "30% T/T in advance, 70% before shipment"
+  deliveryTerms   String?          // 交货条款
+  incoterm        String?          // 贸易术语：FOB, CIF, EXW等
+  portOfLoading   String?          // 起运港
+  portOfDestination String?        // 目的港
+  deliveryDate    DateTime?        // 预计交货日期
+  
+  // 银行信息（用于付款）
+  bankInfo        Json?            // { bankName, accountName, accountNumber, swiftCode, address }
+  
+  // PI状态和时间
+  status          String           @default("Draft") // Draft, Sent, Confirmed, Paid, Cancelled, Expired
+  validUntil      DateTime         // 有效期
+  sentAt          DateTime?        // 发送时间
+  confirmedAt     DateTime?        // 客户确认时间
+  
+  // 附件和备注
+  attachments     Json?            // PI文件附件 URLs
+  notes           String?          // 备注
+  
+  // 时间戳
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  // 关系
+  project         Project?         @relation(fields: [projectId], references: [id])
+  customer        Customer         @relation("CustomerPIs", fields: [customerId], references: [id])
+  quotation       Quotation?       @relation("ProformaInvoices", fields: [quotationId], references: [id])
+  customerPO      CustomerPO?      @relation(fields: [customerPOId], references: [id])
+  contracts       Contract[]       @relation("PIContracts") // 从PI生成的合同
+  shippingBookings ShippingBooking[] // 订舱记录
+  commercialInvoices CommercialInvoice[] // 商业发票
+}
+
+model SalesOrder {
+  id             String           @id @default(cuid())
+  orderNumber    String           @unique // 订单编号
+  projectId      String
+  contractId     String
+  customerId     String?
+  
+  // 订单项目 (JSON格式，每个item包含baseAmount)
+  items          Json             
+  
+  // 客户货币
+  currency       String           @default("USD")
+  
+  // 基准货币（人民币）
+  baseCurrency   String           @default("CNY")
+  exchangeRate   Float            @default(7.0)
+  exchangeDate   DateTime         @default(now())
+  
+  deliveryDate   DateTime?
+  incoterms      String?          // 国际贸易术语
+  status         String           @default("Pending") // Pending, Confirmed, Processing, Shipped, Delivered, Cancelled
+  notes          String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deliveredAt    DateTime?
+  
+  project        Project          @relation(fields: [projectId], references: [id])
+  contract       Contract         @relation(fields: [contractId], references: [id])
+  customer       Customer?        @relation("CustomerSalesOrders", fields: [customerId], references: [id])
+  purchaseOrders PurchaseOrder[]
+  invoices       Invoice[]        @relation("SalesOrderInvoices")
+  
+  @@index([projectId])
+  @@index([status])
+  @@index([projectId, status])
+}
+
+// 采购与供应商
+model Supplier {
+  id          String    @id @default(cuid())
+  name        String
+  country     String?
+  address     String?
+  category    String?   // 供应商分类
+  status      String    @default("Active") // Active, Inactive, Blacklisted
+  rating      Float?    @default(0.0) // 评级 (0-5)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  contacts       SupplierContact[]
+  purchaseOrders PurchaseOrder[]
+  ratings        SupplierRating[]
+  products       ProductSupplier[]  // 供应商提供的产品
+  defaultForProducts Product[] @relation("ProductDefaultSupplier") // 作为默认供应商的产品
+  rfqRecords     RFQSupplierRecord[] @relation("SupplierRFQRecords") // RFQ记录
+}
+
+model SupplierContact {
+  id        String   @id @default(cuid())
+  supplierId String
+  name      String
+  title     String?
+  email     String?
+  phone     String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  supplier  Supplier @relation(fields: [supplierId], references: [id])
+}
+
+model SupplierRating {
+  id         String   @id @default(cuid())
+  supplierId String
+  userId     String
+ score      Float    // 1-5 评分
+ note       String?
+  createdAt  DateTime @default(now())
+  
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+  user       User     @relation("SupplierRatingUser", fields: [userId], references: [id])
+}
+
+model PurchaseRequest {
+  id          String   @id @default(cuid())
+  requestId   String   @unique // 请购单编号
+  projectId   String
+  requestedBy String
+  items       Json     // 请购项目 (JSON格式)
+  reason      String   // 请购原因
+  budget      Float?
+  status      String   @default("Pending") // Pending, Approved, Rejected, Processed
+  approvedBy  String?
+  approvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  project     Project  @relation("ProjectPurchaseRequests", fields: [projectId], references: [id])
+  requester   User     @relation("PurchaseRequestRequester", fields: [requestedBy], references: [id])
+  approver    User?    @relation("PurchaseRequestApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+  purchaseOrders PurchaseOrder[]
+}
+
+model PurchaseOrder {
+  id                String           @id @default(cuid())
+  poNumber          String           @unique // 采购单编号
+  projectId         String
+  supplierId        String
+  salesOrderId      String?
+  purchaseRequestId String?
+  
+  // 采购项目 (JSON格式，每个item包含baseAmount)
+  items             Json             
+  
+  // 供应商货币（采购时使用的货币，通常是CNY或外币）
+  currency          String           @default("CNY")
+  
+  // 基准货币（人民币）- 如果采购就是CNY，则和currency一致
+  baseCurrency      String           @default("CNY")
+  exchangeRate      Float            @default(1.0) // 如果是CNY采购则为1.0
+  exchangeDate      DateTime         @default(now())
+  
+  deliveryDate      DateTime?
+  terms             String?          // 采购条款
+  status            String           @default("Pending") // Pending, Confirmed, Processing, Shipped, Received, Completed, Cancelled
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  
+  // 收货信息
+  receivedAt        DateTime?
+  receivedBy        String?          // 收货人
+  storageLocation   String?          // 存放位置（简单文本）
+  receivingPhotos   Json?            // 收货照片 URLs
+  receivingNotes    String?          // 收货备注
+  
+  // 质检信息
+  qcStatus          String?          // passed, failed, partial, pending
+  qcCheckedAt       DateTime?        // 质检时间
+  qcCheckedBy       String?          // 质检人
+  qcPassed          Boolean?         // 是否通过
+  qcIssues          String?          // 质量问题描述
+  qcPhotos          Json?            // 质检照片
+  qcAction          String?          // 处理方式: return, replace, discount, accept_as_is
+  qcChecklist       Json?            // 快速检查项 { quantity, packaging, appearance, specification }
+  
+  project           Project          @relation(fields: [projectId], references: [id])
+  supplier          Supplier         @relation(fields: [supplierId], references: [id])
+  salesOrder        SalesOrder?      @relation(fields: [salesOrderId], references: [id])
+  purchaseRequest   PurchaseRequest? @relation(fields: [purchaseRequestId], references: [id])
+  inspections       Inspection[]
+  invoices          Invoice[]
+  
+  @@index([projectId])
+  @@index([salesOrderId])
+  @@index([status])
+  @@index([salesOrderId, status])
+}
+
+model Inspection {
+  id            String           @id @default(cuid())
+  poId          String
+  planDate      DateTime
+  criteria      String           // 检验标准
+  inspectorId   String
+  status        String           @default("Scheduled") // Scheduled, InProgress, Passed, Failed, Completed
+  passed        Boolean?
+  defects       Json?            // 缺陷信息 (JSON格式)
+  attachments   String[]         // 附件
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  completedAt   DateTime?
+  
+  purchaseOrder PurchaseOrder    @relation(fields: [poId], references: [id])
+  inspector     User             @relation(fields: [inspectorId], references: [id])
+}
+
+// 样品
+model Sample {
+  id            String           @id @default(cuid())
+  sampleNumber  String           @unique // 样品编号
+  projectId     String
+  spec          String           // 规格
+  quantity      Float            // 数量
+ requirement   String?          // 要求说明
+  dueDate       DateTime?        // 截止日期
+  status        String           @default("Applied") // Applied, Making, Sent, Testing, Feedback, Completed, Cancelled
+  courier       String?          // 快递公司
+  trackingNo    String?          // 追踪号
+  shipDate      DateTime?        // 发送日期
+  receivedBy    String?          // 签收人
+  receivedAt    DateTime?        // 签收日期
+  note          String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  
+  project       Project          @relation(fields: [projectId], references: [id])
+  costs         SampleCost[]
+  
+  @@index([projectId])
+  @@index([status])
+}
+
+model SampleCost {
+  id           String   @id @default(cuid())
+  sampleId     String
+  type         String   // make, ship, duty, other
+  
+  // 原始货币（如果是外币支付）
+  amount       Float
+  currency     String   @default("CNY") // 改为默认CNY
+  
+  // 基准货币（人民币）- 统一为人民币核算
+  baseAmount   Float
+  baseCurrency String   @default("CNY")
+  exchangeRate Float    @default(1.0) // 如果是CNY则为1.0
+  
+  note         String?
+  createdAt    DateTime @default(now())
+  
+  sample       Sample   @relation(fields: [sampleId], references: [id])
+  
+  @@index([sampleId])
+}
+
+// 财务
+model Invoice {
+  id              String           @id @default(cuid())
+  invoiceNumber   String           @unique // 发票编号
+  type            String           // AR (应收账款), AP (应付账款)
+  projectId       String
+  refId           String?          // 关联ID (如订单ID, 采购单ID)
+  salesOrderId    String?
+  purchaseOrderId String?
+  
+  // 发票货币金额
+  amount          Float
+  currency        String           @default("USD")
+  
+  // 基准货币金额（人民币）
+  baseAmount      Float
+  baseCurrency    String           @default("CNY")
+  exchangeRate    Float            @default(7.0)
+  exchangeDate    DateTime         @default(now())
+  
+  dueDate         DateTime
+  status          String           @default("Draft") // Draft, Sent, Paid, Overdue, Cancelled
+  issuedAt        DateTime?
+  paidAt          DateTime?
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  project         Project          @relation(fields: [projectId], references: [id])
+  salesOrder      SalesOrder?      @relation("SalesOrderInvoices", fields: [salesOrderId], references: [id])
+  purchaseOrder   PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id])
+  payments        Payment[]
+  
+  @@index([projectId])
+  @@index([salesOrderId])
+  @@index([purchaseOrderId])
+  @@index([status])
+}
+
+model Payment {
+  id                  String           @id @default(cuid())
+  paymentNumber       String           @unique // 付款编号
+  type                String           // in (收入), out (支出)
+  projectId           String
+  invoiceId           String?
+  
+  // 付款货币金额
+  amount              Float
+  currency            String           @default("USD")
+  
+  // 基准货币金额（人民币）
+  baseAmount          Float
+  baseCurrency        String           @default("CNY")
+  exchangeRate        Float            @default(7.0) // 实际收/付款时的汇率
+  exchangeDate        DateTime         @default(now())
+  
+  // 汇兑损益（如果有）- 付款汇率与发票汇率的差异
+  exchangeDifference  Float?           @default(0.0) // 正数为收益，负数为损失
+  
+  method              String           // payment method
+  refId               String?          // 关联ID
+  notes               String?
+  settledAt           DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  
+  project             Project          @relation(fields: [projectId], references: [id])
+  invoice             Invoice?         @relation(fields: [invoiceId], references: [id])
+  
+  @@index([projectId])
+  @@index([invoiceId])
+  @@index([type])
+}
+
+model ExchangeRate {
+  id        String   @id @default(cuid())
+  base      String   // 基础货币
+  quote     String   // 报价货币
+  rate      Float    // 汇率
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+  
+  @@unique([base, quote, date])
+}
+
+model ProjectCost {
+  id           String   @id @default(cuid())
+  projectId    String
+  type         String   // sample, purchase, freight, duty, other
+  
+  // 原始货币金额
+  amount       Float
+  currency     String   @default("CNY") // 改为默认CNY
+  
+  // 基准货币金额（人民币）
+  baseAmount   Float
+  baseCurrency String   @default("CNY")
+  exchangeRate Float    @default(1.0)
+  
+  description  String?
+  createdAt    DateTime @default(now())
+  
+  project      Project @relation(fields: [projectId], references: [id])
+}
+
+model ProjectProfitReport {
+  id            String   @id @default(cuid())
+  projectId     String
+  period        String   // 期间 (如 2025-01)
+  revenue       Float    // 收入
+  cost          Float    // 成本
+  grossProfit   Float    // 毛利润
+  margin        Float    // 利润率
+  createdAt     DateTime @default(now())
+  
+  project       Project  @relation(fields: [projectId], references: [id])
+}
+
+// 通用模型
+model File {
+  id         String   @id @default(cuid())
+  name       String
+  path       String   // 文件路径
+  size       Int      // 文件大小（字节）
+  type       String   // 文件类型
+  tags       String[] // 标签
+  scope      String   // 作用域 (project, customer, global)
+  refId      String?  // 关联ID
+  uploadedBy String
+  createdAt  DateTime @default(now())
+  
+  uploader   User     @relation(fields: [uploadedBy], references: [id])
+}
+
+model Tag {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  color      String?  // 标签颜色
+  createdAt  DateTime @default(now())
+  
+  projects   Project[]  @relation("ProjectTags")
+  customers  Customer[] @relation("CustomerTags")
+}
+
+// 任务管理
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  projectId   String?
+  assignedTo  String?
+  createdById String?
+  status      String   @default("Pending") // Pending, InProgress, Completed, Cancelled
+  priority    String   @default("Medium") // Low, Medium, High, Urgent
+  dueDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  completedAt DateTime?
+  
+  project     Project? @relation(fields: [projectId], references: [id])
+  assignee    User?    @relation("AssignedTasks", fields: [assignedTo], references: [id])
+  creator     User?    @relation("CreatedTasks", fields: [createdById], references: [id])
+}
+
+// 产品与分类
+model Product {
+  id              String     @id @default(cuid())
+  partNumber      String     @unique
+  name            String
+  name_cn         String
+  description     String?
+  description_cn  String?
+  unit            String     @default("PCS")
+  priceWithTax    Float?
+  priceWithoutTax Float?
+  weight          Float?
+  volume          Float?
+  hsCode          String?
+  taxRefundRate   Float?     // 退税率 (%)
+  packagingInfo   String?
+
+  // 将数组字段改为字符串存储，以兼容SQLite
+  images          String?    @default("[]")
+  attachments     String?    @default("[]")
+  isActive        Boolean    @default(true)
+  notes           String?
+  categoryId      String?
+  defaultSupplierId String?  // 默认供应商ID
+  projectId       String?   // 关联项目ID
+  
+  category        ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  defaultSupplier Supplier?        @relation("ProductDefaultSupplier", fields: [defaultSupplierId], references: [id], onDelete: SetNull)
+  project         Project?         @relation("ProjectProducts", fields: [projectId], references: [id], onDelete: SetNull)
+  suppliers       ProductSupplier[] // 产品的所有供应商
+  
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+model ProductCategory {
+  id          String     @id @default(cuid())
+  name        String
+  name_cn     String?
+  description String?
+  parentId    String?
+  parent      ProductCategory? @relation("CategoryParent", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children    ProductCategory[] @relation("CategoryParent")
+  products    Product[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+// 模板
+model Template {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  category    String?
+  status      String   @default("Active") // Active, Inactive
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==================== 外贸基础数据配置 ====================
+
+// 港口信息
+model Port {
+  id          String   @id @default(cuid())
+  code        String   @unique // 港口代码，如 CNSHA (上海)
+  name        String   // 英文名称
+  name_cn     String   // 中文名称
+  country     String   // 国家代码，如 CN
+  country_cn  String   // 国家中文名称
+  city        String?  // 城市
+  type        String   // Loading/Destination/Transit
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 贸易术语 (Incoterms)
+model Incoterm {
+  id          String   @id @default(cuid())
+  code        String   @unique // EXW, FOB, CIF等
+  name        String   // 英文全称
+  name_cn     String   // 中文名称
+  description String?  // 详细说明
+  version     String?  @default("2020") // Incoterms版本
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 运输方式
+model ShippingMethod {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String   // 英文名称
+  name_cn     String   // 中文名称
+  type        String   // Sea/Air/Rail/Road/Express/Multimodal
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 付款方式
+model PaymentTerm {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String   // 英文名称
+  name_cn     String   // 中文名称
+  type        String   // TT/LC/DP/DA/OA/WU/PayPal
+  days        Int?     // 账期天数（如适用）
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 包装类型
+model PackingType {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String   // 英文名称
+  name_cn     String   // 中文名称
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 集装箱类型
+model ContainerType {
+  id          String   @id @default(cuid())
+  code        String   @unique // 20GP, 40GP, 40HQ等
+  name        String   // 英文名称
+  name_cn     String   // 中文名称
+  size        String?  // 尺寸
+  capacity    String?  // 容量
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 证书/认证类型
+model Certification {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String   // 英文名称
+  name_cn     String   // 中文名称
+  issuer      String?  // 发证机构
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 贸易类型
+model TradeType {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String   // 英文名称
+  name_cn     String   // 中文名称
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 计量单位
+model UnitOfMeasurement {
+  id          String   @id @default(cuid())
+  code        String   @unique // PCS, KG, TON等
+  name        String   // 英文名称
+  name_cn     String   // 中文名称
+  type        String   // Quantity/Weight/Volume/Length
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 保险类型
+model InsuranceType {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String   // 英文名称
+  name_cn     String   // 中文名称
+  coverage    String?  // 保险范围
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 船公司/承运人
+model ShippingLine {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String   // 英文名称
+  name_cn     String   // 中文名称
+  type        String   // Shipping Line/Carrier/Freight Forwarder
+  website     String?
+  contact     String?
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 报关文件类型
+model CustomsDocument {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String   // 英文名称
+  name_cn     String   // 中文名称
+  required    Boolean  @default(false) // 是否必需
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==================== 报价费用管理 ====================
+
+// 报价费用表
+model QuotationCost {
+  id           String   @id @default(cuid())
+  quotationId  String
+  
+  // 费用类型
+  type         String   // domestic_freight, customs_clearance, ocean_freight, insurance等
+  name         String   // 英文名称
+  name_cn      String?  // 中文名称
+  
+  // 金额（统一以人民币CNY记录）
+  amount       Float    @default(0)
+  currency     String   @default("CNY")
+  
+  // 如果原始是外币，记录外币金额和汇率
+  originalAmount    Float?
+  originalCurrency  String?
+  exchangeRate      Float?   @default(1.0)
+  
+  // 费用来源
+  source       String   @default("manual") // manual（手动录入）, inquiry（询价获得）
+  inquiryId    String?  // 关联询价记录
+  
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  quotation    Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  inquiry      LogisticsInquiry? @relation(fields: [inquiryId], references: [id])
+}
+
+// 物流询价记录
+model LogisticsInquiry {
+  id              String   @id @default(cuid())
+  quotationId     String
+  inquiryNumber   String   @unique // 询价单号，如 INQ-2025-001
+  
+  // 贸易条款和路线信息
+  incoterm        String   // FOB, CIF, EXW等
+  portOfLoading   String?  // 起运港
+  portOfDestination String? // 目的港
+  shippingMethod  String?  // 运输方式: Sea, Air, Express等
+  
+  // 货物信息（从报价单自动生成）
+  totalWeight     Float?   // 总重量(kg)
+  totalVolume     Float?   // 总体积(m³)
+  packageCount    Int?     // 件数
+  cargoDescription String? // 货物描述
+  
+  // 询价服务商列表（JSON格式）
+  suppliers       Json     // [{ id, name, email, contact }]
+  
+  // 询价模板和内容
+  template        String?  @db.Text // 生成的询价邮件/文档内容
+  
+  // 状态
+  status          String   @default("Draft") // Draft, Sent, Received, Closed
+  
+  sentAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  quotation       Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  quotes          LogisticsQuote[] // 收到的报价
+  costs           QuotationCost[]  // 生成的费用记录
+}
+
+// 物流服务商报价
+model LogisticsQuote {
+  id              String   @id @default(cuid())
+  inquiryId       String
+  supplierId      String?  // 关联供应商表（如果已录入系统）
+  supplierName    String   // 服务商名称
+  
+  // 报价明细（JSON格式，支持多个费用项）
+  items           Json     // [{ type, name, amount, currency, notes }]
+  
+  // 总金额
+  totalAmount     Float
+  currency        String   @default("CNY")
+  
+  // 有效期
+  validUntil      DateTime?
+  
+  // 是否选中
+  isSelected      Boolean  @default(false)
+  
+  // 附件
+  attachments     String[] @default([])
+  notes           String?
+  
+  receivedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  
+  inquiry         LogisticsInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+}
+
+// 物流服务商联系人（基础数据配置）
+model LogisticsSupplier {
+  id          String   @id @default(cuid())
+  name        String   // 公司名称
+  type        String   // Freight_Forwarder, Customs_Broker, Shipping_Line, Insurance
+  
+  // 联系人信息
+  contact     String?  // 联系人姓名
+  email       String?
+  phone       String?
+  
+  // 服务范围
+  services    String[] @default([]) // 提供的服务类型
+  routes      String[] @default([]) // 擅长的路线
+  
+  // 评级
+  rating      Float?   @default(0)
+  
+  isActive    Boolean  @default(true)
+  notes       String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==================== 审批系统 ====================
+
+// 审批流程配置
+model ApprovalFlow {
+  id              String   @id @default(cuid())
+  name            String   // 审批流程名称
+  type            String   // quotation, pi, contract, payment_out, payment_in, shipment, production
+  description     String?  // 描述
+  
+  // 审批规则配置（JSON）
+  rules           Json     // { minAmount, requireMultiLevel, approvers: [...] }
+  
+  // 审批层级配置
+  levels          Json     // [{ level: 1, role: 'Manager', minAmount: 0 }, { level: 2, role: 'Director', minAmount: 10000 }]
+  
+  isActive        Boolean  @default(true)
+  isDefault       Boolean  @default(false) // 是否为该类型的默认流程
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  approvals       Approval[]
+}
+
+// 审批记录
+model Approval {
+  id              String   @id @default(cuid())
+  approvalNumber  String   @unique // 审批单号
+  flowId          String?  // 关联审批流程
+  
+  // 审批类型和关联对象
+  type            String   // quotation, pi, contract, payment_out, payment_in, shipment, production
+  relatedId       String   // 关联对象ID
+  relatedType     String   // Quotation, ProformaInvoice, Contract, Payment等
+  relatedData     Json?    // 关联对象的快照数据
+  
+  // 审批金额（如适用）
+  amount          Float?
+  currency        String?  @default("CNY")
+  
+  // 申请人
+  requesterId     String
+  requesterName   String
+  requestReason   String?  // 申请原因
+  
+  // 当前审批人
+  currentApproverId String?
+  currentLevel    Int      @default(1) // 当前审批层级
+  
+  // 审批状态
+  status          String   @default("Pending") // Pending, Approved, Rejected, Cancelled
+  priority        String   @default("Normal") // Low, Normal, High, Urgent
+  
+  // 审批意见
+  comments        String?
+  
+  // 时间戳
+  submittedAt     DateTime @default(now())
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // 关系
+  flow            ApprovalFlow? @relation(fields: [flowId], references: [id])
+  requester       User      @relation("ApprovalRequester", fields: [requesterId], references: [id])
+  currentApprover User?     @relation("CurrentApprover", fields: [currentApproverId], references: [id])
+  history         ApprovalHistory[]
+  notifications   Notification[]
+}
+
+// 审批历史记录
+model ApprovalHistory {
+  id          String   @id @default(cuid())
+  approvalId  String
+  
+  level       Int      // 审批层级
+  approverId  String
+  approverName String
+  action      String   // approve, reject, delegate, comment
+  comments    String?
+  
+  // 审批时的数据快照
+  snapshot    Json?
+  
+  createdAt   DateTime @default(now())
+  
+  approval    Approval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  approver    User     @relation("ApprovalHistoryUser", fields: [approverId], references: [id])
+}
+
+// ==================== 通知系统 ====================
+
+// 通知记录
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String   // 接收人
+  
+  type        String   // approval_request, approval_approved, approval_rejected, payment_received, shipment, task_assigned, reminder
+  title       String   // 通知标题
+  content     String   // 通知内容
+  
+  // 关联对象
+  relatedType String?  // Approval, Payment, Project, Task等
+  relatedId   String?  // 关联对象ID
+  actionUrl   String?  // 操作链接
+  
+  // 通知状态
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+  
+  // 审批关联（如果是审批通知）
+  approvalId  String?
+  
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation("UserNotifications", fields: [userId], references: [id])
+  approval    Approval? @relation(fields: [approvalId], references: [id])
+  
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+// ==================== 自动化任务 ====================
+
+// 定时任务配置
+model ScheduledTask {
+  id          String   @id @default(cuid())
+  name        String   // 任务名称
+  type        String   // reminder, status_update, report_generation
+  
+  // 执行规则（Cron表达式）
+  cronExpression String // 如：0 9 * * * (每天9点)
+  
+  // 任务配置
+  config      Json     // 任务具体配置
+  
+  // 状态
+  isActive    Boolean  @default(true)
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  executions  TaskExecution[]
+}
+
+// 任务执行记录
+model TaskExecution {
+  id          String   @id @default(cuid())
+  taskId      String
+  
+  status      String   // success, failed, running
+  result      Json?    // 执行结果
+  error       String?  // 错误信息
+  
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  
+  task        ScheduledTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+// ==================== 物流管理 ====================
+
+// 订舱信息
+model ShippingBooking {
+  id              String   @id @default(cuid())
+  bookingNumber   String   @unique // 订舱单号
+  projectId       String
+  piId            String?  // 关联形式发票
+  
+  // 承运人信息
+  forwarderId     String?  // 货代ID
+  forwarderName   String?  // 货代名称
+  shippingLineId  String?  // 船公司ID
+  shippingLineName String? // 船公司名称
+  
+  // 船期信息
+  vesselName      String?  // 船名
+  voyageNumber    String?  // 航次
+  
+  // 港口信息
+  portOfLoading   String   // 起运港
+  portOfDischarge String   // 目的港
+  placeOfReceipt  String?  // 收货地
+  placeOfDelivery String?  // 交货地
+  
+  // 时间
+  etd             DateTime? // 预计离港时间
+  eta             DateTime? // 预计到港时间
+  actualDeparture DateTime? // 实际离港时间
+  actualArrival   DateTime? // 实际到港时间
+  
+  // 货物信息
+  cargoDescription String?  // 货物描述
+  totalPackages   Int?     // 总件数
+  totalGrossWeight Float?  // 总毛重(kg)
+  totalNetWeight  Float?   // 总净重(kg)
+  totalVolume     Float?   // 总体积(m³)
+  
+  // 集装箱信息
+  containers      Json?    // [{ containerNo, type, sealNo, packages, weight }]
+  
+  // 状态
+  status          String   @default("Draft") // Draft, Confirmed, InTransit, Arrived, Completed, Cancelled
+  
+  // 附件和备注
+  attachments     Json?
+  notes           String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // 关系
+  project         Project  @relation(fields: [projectId], references: [id])
+  proformaInvoice ProformaInvoice? @relation(fields: [piId], references: [id])
+  billsOfLading   BillOfLading[]
+}
+
+// 提单
+model BillOfLading {
+  id              String   @id @default(cuid())
+  blNumber        String   @unique // 提单号
+  bookingId       String
+  projectId       String
+  
+  // 提单类型
+  type            String   // Original (正本), SeaWaybill (海运单), Telex (电放)
+  
+  // 托运人、收货人、通知方
+  shipper         Json     // { name, address, contact }
+  consignee       Json     // { name, address, contact }
+  notifyParty     Json?    // { name, address, contact }
+  
+  // 运输路线
+  placeOfReceipt  String?  // 收货地
+  portOfLoading   String   // 装货港
+  portOfDischarge String   // 卸货港
+  placeOfDelivery String?  // 交货地
+  
+  // 船舶信息
+  vesselName      String?  // 船名
+  voyageNumber    String?  // 航次
+  
+  // 货物信息
+  cargoDescription String  // 货物描述
+  marksAndNumbers String?  // 唛头
+  
+  // 包装信息
+  totalPackages   Int      // 总件数
+  packageType     String?  // 包装类型
+  totalGrossWeight Float   // 总毛重
+  totalVolume     Float?   // 总体积
+  
+  // 集装箱信息
+  containers      Json?    // [{ containerNo, sealNo, type, packages, weight }]
+  
+  // 运费
+  freightPayable  String?  // Prepaid (预付), Collect (到付)
+  
+  // 签发信息
+  issueDate       DateTime? // 签发日期
+  issuePlace      String?   // 签发地
+  issuedBy        String?   // 签发人
+  
+  // 状态
+  status          String   @default("Draft") // Draft, Issued, Surrendered (已电放), Collected (已提取)
+  
+  // 附件（提单扫描件等）
+  attachments     Json?
+  notes           String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // 关系
+  booking         ShippingBooking @relation(fields: [bookingId], references: [id])
+  project         Project  @relation(fields: [projectId], references: [id])
+  commercialInvoices CommercialInvoice[] // 关联的商业发票
+}
+
+// 商业发票
+model CommercialInvoice {
+  id              String   @id @default(cuid())
+  invoiceNumber   String   @unique // 发票号
+  projectId       String
+  piId            String?  // 关联形式发票
+  blId            String?  // 关联提单
+  
+  // 卖方买方信息
+  seller          Json     // { name, address, taxId, contact }
+  buyer           Json     // { name, address, taxId, contact }
+  
+  // 发票明细
+  items           Json     // [{ partNumber, description, quantity, unitPrice, amount, hsCode }]
+  
+  // 金额
+  totalAmount     Float
+  currency        String   @default("USD")
+  
+  // 基准货币金额
+  baseTotalAmount Float
+  baseCurrency    String   @default("CNY")
+  exchangeRate    Float    @default(7.0)
+  
+  // 贸易条款
+  paymentTerms    String?
+  deliveryTerms   String?
+  incoterm        String?
+  
+  // 运输信息
+  portOfLoading   String?
+  portOfDischarge String?
+  vesselName      String?
+  voyageNumber    String?
+  
+  // 签发信息
+  issueDate       DateTime
+  issuePlace      String?
+  issuedBy        String?  // 签发人
+  
+  // 状态
+  status          String   @default("Draft") // Draft, Issued, Sent, Customs_Cleared
+  
+  // 附件
+  attachments     Json?
+  notes           String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // 关系
+  project         Project  @relation(fields: [projectId], references: [id])
+  proformaInvoice ProformaInvoice? @relation(fields: [piId], references: [id])
+  billOfLading    BillOfLading? @relation(fields: [blId], references: [id])
+  packingLists    PackingList[]
+}
+
+// 装箱单
+model PackingList {
+  id              String   @id @default(cuid())
+  plNumber        String   @unique // 装箱单号
+  invoiceId       String   // 关联商业发票
+  projectId       String
+  
+  // 包装信息
+  packages        Json     // [{ packageNo, description, quantity, grossWeight, netWeight, volume, dimensions }]
+  
+  // 汇总信息
+  totalPackages   Int      // 总件数
+  totalGrossWeight Float   // 总毛重(kg)
+  totalNetWeight  Float    // 总净重(kg)
+  totalVolume     Float?   // 总体积(m³)
+  
+  // 唛头
+  marksAndNumbers String?
+  
+  // 签发信息
+  issueDate       DateTime
+  issuePlace      String?
+  issuedBy        String?
+  
+  // 状态
+  status          String   @default("Draft") // Draft, Issued, Sent
+  
+  // 附件
+  attachments     Json?
+  notes           String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // 关系
+  invoice         CommercialInvoice @relation(fields: [invoiceId], references: [id])
+  project         Project  @relation(fields: [projectId], references: [id])
+}
+
+// 物流跟踪
+model ShippingTracking {
+  id          String   @id @default(cuid())
+  bookingId   String?  // 关联订舱
+  blId        String?  // 关联提单
+  projectId   String
+  
+  // 跟踪事件
+  eventType   String   // departed, in_transit, arrived, customs_clearance, delivered
+  eventDate   DateTime // 事件时间
+  location    String?  // 位置
+  description String   // 描述
+  
+  // 位置坐标（可选）
+  latitude    Float?
+  longitude   Float?
+  
+  // 状态
+  isImportant Boolean  @default(false) // 是否为重要节点
+  
+  createdAt   DateTime @default(now())
+  
+  // 关系
+  project     Project  @relation(fields: [projectId], references: [id])
+}
+
+// ==================== 财务核销与利润管理 ====================
+
+// 收付款核销记录
+model PaymentReconciliation {
+  id              String   @id @default(cuid())
+  projectId       String
+  
+  // 收款核销
+  paymentInId     String?  // 收款记录ID
+  invoiceId       String?  // 关联发票/PI
+  
+  // 付款核销
+  paymentOutId    String?  // 付款记录ID
+  purchaseOrderId String?  // 关联采购订单
+  
+  // 核销金额
+  amount          Float
+  currency        String   @default("CNY")
+  
+  // 核销状态
+  status          String   @default("Reconciled") // Reconciled, Partial, Pending
+  
+  // 差异处理
+  difference      Float?   @default(0) // 差异金额
+  differenceReason String? // 差异原因
+  
+  // 核销人和时间
+  reconciledBy    String
+  reconciledAt    DateTime @default(now())
+  
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // 关系
+  project         Project  @relation(fields: [projectId], references: [id])
+  reconciler      User     @relation("PaymentReconciler", fields: [reconciledBy], references: [id])
+}
+
+// 项目利润详细核算
+model ProjectProfitDetail {
+  id              String   @id @default(cuid())
+  projectId       String
+  
+  // 收入
+  totalRevenue    Float    @default(0) // 总收入
+  revenue         Json     // [{ type, amount, currency, source }]
+  
+  // 成本
+  totalCost       Float    @default(0) // 总成本
+  costs           Json     // [{ type, amount, currency, description }]
+  
+  // 费用明细
+  sampleCost      Float    @default(0) // 样品成本
+  purchaseCost    Float    @default(0) // 采购成本
+  shippingCost    Float    @default(0) // 物流成本
+  customsCost     Float    @default(0) // 报关成本
+  otherCost       Float    @default(0) // 其他成本
+  
+  // 利润
+  grossProfit     Float    @default(0) // 毛利润
+  netProfit       Float    @default(0) // 净利润
+  profitMargin    Float    @default(0) // 利润率(%)
+  
+  // 汇兑损益
+  exchangeGainLoss Float   @default(0) // 汇兑损益
+  
+  // 核算基准
+  baseCurrency    String   @default("CNY") // 核算货币
+  calculatedAt    DateTime // 核算时间
+  calculatedBy    String   // 核算人
+  
+  // 状态
+  status          String   @default("Draft") // Draft, Confirmed, Finalized
+  
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // 关系
+  project         Project  @relation("ProjectProfitDetails", fields: [projectId], references: [id])
+  calculator      User     @relation("ProfitCalculator", fields: [calculatedBy], references: [id])
+}
+
+// ==================== 异常处理 ====================
+
+// 异常记录
+model Exception {
+  id              String   @id @default(cuid())
+  exceptionNumber String   @unique // 异常单号
+  projectId       String
+  
+  // 异常类型
+  type            String   // qc_failed, sample_rejected, payment_overdue, production_delay, shipment_delay
+  severity        String   @default("Medium") // Low, Medium, High, Critical
+  
+  // 异常来源
+  sourceType      String   // Sample, PurchaseOrder, Payment, Project等
+  sourceId        String   // 关联对象ID
+  
+  // 异常描述
+  title           String   // 异常标题
+  description     String   // 详细描述
+  
+  // 责任方
+  responsibleParty String? // Customer, Supplier, Internal, Forwarder
+  
+  // 处理信息
+  status          String   @default("Open") // Open, InProgress, Resolved, Closed, Escalated
+  assignedTo      String?  // 处理人
+  
+  // 解决方案
+  solution        String?  // 解决方案
+  actionTaken     String?  // 已采取的行动
+  
+  // 影响
+  impact          Json?    // { cost, time, quality }
+  
+  // 时间
+  occurredAt      DateTime @default(now())
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  
+  // 优先级和截止时间
+  priority        String   @default("Normal") // Low, Normal, High, Urgent
+  dueDate         DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // 关系
+  project         Project  @relation(fields: [projectId], references: [id])
+  assignee        User?    @relation("ExceptionAssignee", fields: [assignedTo], references: [id])
+  history         ExceptionHistory[]
+  reminders       ExceptionReminder[]
+}
+
+// 异常处理历史
+model ExceptionHistory {
+  id          String   @id @default(cuid())
+  exceptionId String
+  
+  action      String   // status_change, assigned, comment, resolved
+  from        String?  // 原状态/值
+  to          String?  // 新状态/值
+  performedBy String
+  comments    String?
+  
+  createdAt   DateTime @default(now())
+  
+  exception   Exception @relation(fields: [exceptionId], references: [id], onDelete: Cascade)
+  performer   User     @relation("ExceptionHistoryUser", fields: [performedBy], references: [id])
+}
+
+// 异常提醒
+model ExceptionReminder {
+  id          String   @id @default(cuid())
+  exceptionId String
+  
+  remindAt    DateTime // 提醒时间
+  remindType  String   // before_due, overdue, escalate
+  message     String
+  
+  isSent      Boolean  @default(false)
+  sentAt      DateTime?
+  
+  createdAt   DateTime @default(now())
+  
+  exception   Exception @relation(fields: [exceptionId], references: [id], onDelete: Cascade)
+}
+
+// ==================== RFQ 邮件跟踪管理 ====================
+
+// RFQ 发送记录
+model RFQRecord {
+  id              String   @id @default(cuid())
+  projectId       String
+  rfqNumber       String   @unique // RFQ编号，如 RFQ-2025-001
+  
+  // 发送信息
+  sentBy          String   // 发送人ID
+  sentAt          DateTime @default(now()) // 发送时间
+  
+  // 产品信息（快照）
+  items           Json     // 询价产品列表快照
+  documents       Json?    // 附件文档列表快照
+  
+  // 交易条款
+  currency        String   @default("USD")
+  incoterm        String?
+  portOfLoading   String?
+  portOfDestination String?
+  
+  // 状态
+  status          String   @default("Sent") // Sent, PartialReply, AllReplied, Expired
+  
+  // 备注
+  notes           String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // 关系
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sender          User     @relation("RFQSender", fields: [sentBy], references: [id])
+  supplierRecords RFQSupplierRecord[] // 发送给各个供应商的记录
+}
+
+// RFQ 供应商记录
+model RFQSupplierRecord {
+  id              String   @id @default(cuid())
+  rfqId           String
+  supplierId      String
+  
+  // 发送状态
+  sendStatus      String   @default("Pending") // Pending, Sent, Failed
+  sendError       String?  // 发送失败原因
+  sentAt          DateTime? // 实际发送时间
+  
+  // 回复状态
+  replyStatus     String   @default("NoReply") // NoReply, Replied, Declined
+  repliedAt       DateTime? // 回复时间
+  
+  // 回复内容
+  replyContent    String?  @db.Text // 回复邮件内容
+  replyAttachments Json?   // 回复附件列表 [{ name, path, size }]
+  
+  // 报价信息（快照）
+  quotation       Json?    // 供应商报价详情
+  
+  // 备注
+  notes           String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // 关系
+  rfq             RFQRecord @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  supplier        Supplier  @relation("SupplierRFQRecords", fields: [supplierId], references: [id])
+  
+  @@unique([rfqId, supplierId])
+  @@index([rfqId])
+  @@index([supplierId])
+}
+
+// ==================== 产品供应商关联 ====================
+
+// 产品供应商关联表
+// 用于管理产品与供应商的多对多关系，以及供应商报价信息
+model ProductSupplier {
+  id                  String    @id @default(cuid())
+  productId           String
+  supplierId          String
+  
+  // 供应商报价信息
+  supplierPartNumber  String?   // 供应商的产品编号
+  unitPrice           Float     // 单价（供应商报价）
+  currency            String    @default("CNY")
+  moq                 Int?      // 最小起订量 (Minimum Order Quantity)
+  leadTime            Int?      // 交货期（天数）
+  taxRate             Float?    @default(0.0) // 税率
+  
+  // 供应商优先级
+  priority            Int       @default(0)   // 优先级（数字越小优先级越高，0为最高）
+  isPreferred         Boolean   @default(false) // 是否首选供应商
+  isActive            Boolean   @default(true)  // 是否有效
+  
+  // 报价历史
+  lastQuotedAt        DateTime? // 最后报价日期
+  quotationRef        String?   // 报价单号/参考号
+  
+  // 备注
+  notes               String?
+  
+  // 时间戳
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  // 关系
+  product             Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier            Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  
+  // 唯一约束：同一产品+供应商组合唯一
+  @@unique([productId, supplierId])
+  @@index([productId])
+  @@index([supplierId])
+  @@index([isPreferred])
+}
+
+// ==================== 系统配置 ====================
+
+// 系统配置表
+// 用于存储系统级别的配置项，如邮件模板、显示设置等
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique // 配置键，如：rfq.email.companyName
+  value       String   // 配置值
+  category    String   @default("General") // General, Email, Workflow, Display等
+  description String?  // 配置说明
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 用户配置表
+// 用于存储用户级别的个人配置，如SMTP邮箱、个人偏好等
+model UserSetting {
+  id          String   @id @default(cuid())
+  userId      String
+  
+  // SMTP邮箱配置
+  smtpHost    String?  // SMTP服务器地址
+  smtpPort    Int?     // SMTP端口
+  smtpUser    String?  // SMTP用户名（邮箱地址）
+  smtpPass    String?  // SMTP密码（加密存储）
+  smtpFrom    String?  // 发件人邮箱
+  smtpSecure  Boolean? @default(false) // 是否使用SSL
+  
+  // RFQ 邮件模板配置
+  rfqEmailCompanyName String? // 公司名称
+  rfqEmailSubject     String? // 邮件主题
+  rfqEmailGreeting    String? // 问候语
+  rfqEmailIntro       String? // 开场白
+  rfqEmailClosing     String? // 结束语
+  rfqEmailSignature   String? @db.Text // 签名（支持长文本）
+  rfqEmailFooter      String? // 页脚
+  
+  // 个人偏好
+  language    String?  @default("zh") // zh, en
+  timezone    String?  @default("Asia/Shanghai")
+  currency    String?  @default("CNY")
+  theme       String?  @default("light") // light, dark, system
+  
+  // 通知设置
+  emailNotifications  Boolean @default(true)
+  pushNotifications   Boolean @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId])
+  @@index([userId])
+}
