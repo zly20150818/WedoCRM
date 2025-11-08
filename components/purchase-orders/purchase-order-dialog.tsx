@@ -469,42 +469,55 @@ export function PurchaseOrderDialog({
           isFullscreen
             ? "w-screen h-screen max-w-none max-h-none m-0 rounded-none"
             : "max-w-4xl max-h-[90vh]"
-        } overflow-y-auto`}
+        } flex flex-col p-0`}
       >
-        <DialogHeader className="flex-row items-center justify-between space-y-0">
-          <DialogTitle>
-            {purchaseOrder ? "Edit Purchase Order" : "Create New Purchase Order"}
-          </DialogTitle>
-          <div className="flex gap-2">
-            {!editMode && (
-              <>
-                <Button variant="outline" size="sm" onClick={handleSaveDraft}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Draft
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleClearForm}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Clear Form
-                </Button>
-              </>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsFullscreen(!isFullscreen)}
-            >
-              <Maximize2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </DialogHeader>
+        {/* 固定的顶部标题和按钮区域 */}
+        <div className="sticky top-0 z-10 bg-background border-b px-6 py-4">
+          <DialogHeader className="flex-row items-start justify-between space-y-0">
+            <div className="flex-1 pr-4">
+              <DialogTitle>
+                {purchaseOrder ? "Edit Purchase Order" : "Create New Purchase Order"}
+              </DialogTitle>
+            </div>
+            
+            {/* 右上角按钮区域 - 始终可见 */}
+            <div className="flex gap-2 shrink-0">
+              {!editMode && (
+                <>
+                  <Button variant="outline" size="sm" onClick={handleSaveDraft} title="Save Draft">
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Draft
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleClearForm} title="Clear Form">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Clear Form
+                  </Button>
+                </>
+              )}
+              <Button type="submit" size="sm" form="purchase-order-form" title={purchaseOrder ? "Update" : "Create"}>
+                {purchaseOrder ? "Update" : "Create"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
+        </div>
 
-        {loadingData ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* 可滚动的内容区域 */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {loadingData ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <Form {...form}>
+              <form id="purchase-order-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               {/* 基本信息 */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Basic Information</h3>
@@ -861,30 +874,16 @@ export function PurchaseOrderDialog({
                 />
               </div>
 
-              {/* 提示信息 */}
-              {!editMode && (
-                <div className="text-sm text-muted-foreground">
-                  * Your changes are automatically saved as draft
-                </div>
-              )}
-
-              {/* 提交按钮 */}
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {purchaseOrder ? "Update" : "Create"}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        )}
+                {/* 提示信息 */}
+                {!editMode && (
+                  <div className="text-sm text-muted-foreground">
+                    * Your changes are automatically saved as draft
+                  </div>
+                )}
+              </form>
+            </Form>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   )

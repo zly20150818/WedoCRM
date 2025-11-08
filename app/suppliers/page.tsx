@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { MainLayout } from "@/components/layout/main-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -200,7 +201,7 @@ export default function SuppliersPage() {
   }
 
   return (
-    <div className="container mx-auto py-6">
+    <MainLayout>
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -315,7 +316,7 @@ export default function SuppliersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </MainLayout>
   )
 }
 
