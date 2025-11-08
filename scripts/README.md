@@ -165,7 +165,50 @@ scripts\supabase-monitor.ps1 -IntervalSeconds 30 -MaxFailures 2
 
 ---
 
-### 7. 完整启动开发环境 - `start-dev-with-supabase`
+### 7. 创建测试用户 - `create-test-user`
+
+创建默认测试用户（admin@fincrm.com）并设置为管理员角色。
+
+**使用方法**：
+
+```cmd
+# 直接运行批处理文件
+scripts\create-test-user.bat
+
+# 或使用 PowerShell 版本（推荐）
+powershell -ExecutionPolicy Bypass -File scripts\create-test-user.ps1
+```
+
+**功能**：
+- ✅ 自动创建测试用户 admin@fincrm.com
+- ✅ 密码：admin123
+- ✅ 设置为 Admin 角色
+- ✅ 自动设置公司信息
+
+**注意**：
+- ⚠️ 如果用户已存在，脚本会提示错误（这是正常的）
+- ⚠️ 创建后需要手动升级为 Admin（或运行 `make-admin.bat`）
+
+---
+
+### 8. 升级为管理员 - `make-admin`
+
+将指定用户升级为管理员角色。
+
+**使用方法**：
+
+```cmd
+# 直接运行批处理文件
+scripts\make-admin.bat
+```
+
+**功能**：
+- ✅ 将 admin@fincrm.com 升级为 Admin 角色
+- ✅ 设置管理员信息
+
+---
+
+### 9. 完整启动开发环境 - `start-dev-with-supabase`
 
 启动开发服务器前自动检查并修复 Supabase。
 
@@ -227,11 +270,33 @@ npm run supabase:monitor
 # 2. 重置数据库
 npm run db:reset
 
-# 3. 更新类型
+# 3. 创建测试用户
+powershell -ExecutionPolicy Bypass -File scripts\create-test-user.ps1
+
+# 4. 更新类型
 npm run db:types
 
-# 4. 启动开发服务器
+# 5. 启动开发服务器
 npm run dev:safe
+```
+
+#### 首次设置流程
+
+```cmd
+# 1. 安装依赖
+npm install
+
+# 2. 启动 Supabase
+supabase start
+
+# 3. 创建测试用户
+powershell -ExecutionPolicy Bypass -File scripts\create-test-user.ps1
+
+# 4. 升级为管理员（如果需要）
+scripts\make-admin.bat
+
+# 5. 启动开发服务器
+npm run dev:full
 ```
 
 #### 清理缓存后重启
