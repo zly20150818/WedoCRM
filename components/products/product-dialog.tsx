@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import {
   Form,
@@ -32,7 +33,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2 } from "lucide-react"
+import { Loader2, Save, Trash2, Maximize2 } from "lucide-react"
 
 /**
  * 表单验证架构
@@ -105,9 +106,18 @@ interface ProductDialogProps {
   categories: ProductCategory[]
 }
 
+// 本地存储的 key
+const DRAFT_STORAGE_KEY = "product_dialog_draft"
+
 /**
  * 产品创建/编辑对话框组件
  * 用于新建或编辑产品信息
+ * 
+ * 特性：
+ * - 全屏显示，适合字段较多的表单
+ * - 自动保存草稿到 localStorage
+ * - 支持手动保存草稿和清空表单
+ * - 关闭后重新打开会恢复未提交的数据
  */
 export function ProductDialog({
   open,
@@ -117,6 +127,7 @@ export function ProductDialog({
   categories,
 }: ProductDialogProps) {
   const [loading, setLoading] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(true)
   const { toast } = useToast()
   const supabase = createClient()
 
@@ -143,10 +154,95 @@ export function ProductDialog({
   })
 
   /**
+   * 从 localStorage 加载草稿
+   */
+  function loadDraft() {
+    try {
+      const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY)
+      if (savedDraft) {
+        const draft = JSON.parse(savedDraft)
+        return draft
+      }
+    } catch (error) {
+      console.error("Error loading draft:", error)
+    }
+    return null
+  }
+
+  /**
+   * 保存草稿到 localStorage
+   */
+  function saveDraft(data: FormValues) {
+    try {
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(data))
+      toast({
+        title: "Draft Saved",
+        description: "Your changes have been saved as draft",
+      })
+    } catch (error) {
+      console.error("Error saving draft:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save draft",
+        variant: "destructive",
+      })
+    }
+  }
+
+  /**
+   * 清除草稿
+   */
+  function clearDraft() {
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY)
+    } catch (error) {
+      console.error("Error clearing draft:", error)
+    }
+  }
+
+  /**
+   * 手动保存草稿
+   */
+  function handleSaveDraft() {
+    const currentValues = form.getValues()
+    saveDraft(currentValues)
+  }
+
+  /**
+   * 清空表单
+   */
+  function handleClearForm() {
+    form.reset({
+      part_number: "",
+      name: "",
+      name_cn: "",
+      description: "",
+      description_cn: "",
+      unit: "PCS",
+      price_with_tax: "",
+      price_without_tax: "",
+      weight: "",
+      volume: "",
+      hs_code: "",
+      tax_refund_rate: "",
+      packaging_info: "",
+      is_active: true,
+      notes: "",
+      category_id: "",
+    })
+    clearDraft()
+    toast({
+      title: "Form Cleared",
+      description: "All form data has been cleared",
+    })
+  }
+
+  /**
    * 当产品数据改变时，更新表单
    */
   useEffect(() => {
     if (product) {
+      // 编辑模式：加载现有产品数据
       form.reset({
         part_number: product.part_number,
         name: product.name,
@@ -166,26 +262,52 @@ export function ProductDialog({
         category_id: product.category_id || "",
       })
     } else {
-      form.reset({
-        part_number: "",
-        name: "",
-        name_cn: "",
-        description: "",
-        description_cn: "",
-        unit: "PCS",
-        price_with_tax: "",
-        price_without_tax: "",
-        weight: "",
-        volume: "",
-        hs_code: "",
-        tax_refund_rate: "",
-        packaging_info: "",
-        is_active: true,
-        notes: "",
-        category_id: "",
-      })
+      // 新建模式：尝试从 localStorage 恢复草稿
+      const draft = loadDraft()
+      if (draft) {
+        form.reset(draft)
+        toast({
+          title: "Draft Restored",
+          description: "Your previous draft has been restored",
+        })
+      } else {
+        form.reset({
+          part_number: "",
+          name: "",
+          name_cn: "",
+          description: "",
+          description_cn: "",
+          unit: "PCS",
+          price_with_tax: "",
+          price_without_tax: "",
+          weight: "",
+          volume: "",
+          hs_code: "",
+          tax_refund_rate: "",
+          packaging_info: "",
+          is_active: true,
+          notes: "",
+          category_id: "",
+        })
+      }
     }
-  }, [product, form])
+  }, [product, form, open])
+
+  /**
+   * 监听表单变化，自动保存草稿（仅在新建模式）
+   */
+  useEffect(() => {
+    if (!product && open) {
+      const subscription = form.watch((value) => {
+        // 防抖保存
+        const timeoutId = setTimeout(() => {
+          saveDraft(value as FormValues)
+        }, 1000)
+        return () => clearTimeout(timeoutId)
+      })
+      return () => subscription.unsubscribe()
+    }
+  }, [form, product, open])
 
   /**
    * 表单提交处理
@@ -242,6 +364,8 @@ export function ProductDialog({
       onOpenChange(false)
       onSuccess()
       form.reset()
+      // 成功提交后清除草稿
+      clearDraft()
     } catch (error: any) {
       console.error("Error saving product:", error)
       
@@ -268,11 +392,58 @@ export function ProductDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {product ? "Edit Product" : "Create New Product"}
-          </DialogTitle>
+      <DialogContent 
+        className={`${
+          isFullscreen 
+            ? "w-screen h-screen max-w-none max-h-none m-0 rounded-none" 
+            : "max-w-4xl max-h-[90vh]"
+        } overflow-y-auto`}
+      >
+        <DialogHeader className="flex-row items-center justify-between space-y-0 pb-4">
+          <div>
+            <DialogTitle className="text-2xl">
+              {product ? "Edit Product" : "Create New Product"}
+            </DialogTitle>
+            <DialogDescription>
+              {product 
+                ? "Update the product information below" 
+                : "Fill in the details to create a new product. Your progress is automatically saved."}
+            </DialogDescription>
+          </div>
+          <div className="flex gap-2">
+            {!product && (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSaveDraft}
+                  disabled={loading}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Draft
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearForm}
+                  disabled={loading}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear Form
+                </Button>
+              </>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+          </div>
         </DialogHeader>
 
         <Form {...form}>
@@ -611,19 +782,24 @@ export function ProductDialog({
             </div>
 
             {/* 表单操作按钮 */}
-            <div className="flex justify-end gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={loading}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {product ? "Update Product" : "Create Product"}
-              </Button>
+            <div className="flex justify-between items-center pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                {!product && "* Your changes are automatically saved as draft"}
+              </div>
+              <div className="flex gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {product ? "Update Product" : "Create Product"}
+                </Button>
+              </div>
             </div>
           </form>
         </Form>
