@@ -108,3 +108,135 @@ export async function uploadDocument(
   return await uploadFile("documents", filePath, file)
 }
 
+/**
+ * 上传产品图片
+ * @param productId 产品 ID
+ * @param file 图片文件
+ * @returns 图片的公共 URL 和文件路径
+ */
+export async function uploadProductImage(
+  productId: string,
+  file: File
+): Promise<{ url: string | null; path: string | null; error: Error | null }> {
+  const supabase = createClient()
+  const fileExt = file.name.split(".").pop()
+  const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+  const filePath = `products/${productId}/${fileName}`
+
+  try {
+    const { data, error } = await supabase.storage.from("products").upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+    })
+
+    if (error) {
+      return { url: null, path: null, error: error as Error }
+    }
+
+    // 获取公共 URL
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("products").getPublicUrl(filePath)
+
+    return { url: publicUrl, path: filePath, error: null }
+  } catch (error) {
+    return { url: null, path: null, error: error as Error }
+  }
+}
+
+/**
+ * 上传产品附件
+ * @param productId 产品 ID
+ * @param file 附件文件
+ * @returns 附件的公共 URL 和文件路径
+ */
+export async function uploadProductAttachment(
+  productId: string,
+  file: File
+): Promise<{ url: string | null; path: string | null; error: Error | null }> {
+  const supabase = createClient()
+  const fileExt = file.name.split(".").pop()
+  const fileName = `${Date.now()}-${file.name}`
+  const filePath = `products/${productId}/attachments/${fileName}`
+
+  try {
+    const { data, error } = await supabase.storage.from("products").upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+    })
+
+    if (error) {
+      return { url: null, path: null, error: error as Error }
+    }
+
+    // 获取公共 URL
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("products").getPublicUrl(filePath)
+
+    return { url: publicUrl, path: filePath, error: null }
+  } catch (error) {
+    return { url: null, path: null, error: error as Error }
+  }
+}
+
+/**
+ * 从文件路径删除产品文件
+ * @param filePath 文件路径（可以是完整 URL 或相对路径）
+ * @returns 删除结果
+ */
+export async function deleteProductFile(
+  filePath: string
+): Promise<{ error: Error | null }> {
+  const supabase = createClient()
+
+  try {
+    let path: string
+
+    // 如果是完整 URL，提取路径
+    // 例如: https://xxx.supabase.co/storage/v1/object/public/products/products/xxx/image.jpg
+    if (filePath.startsWith("http")) {
+      try {
+        // 从 URL 中提取路径部分
+        const url = new URL(filePath)
+        // URL 路径格式: /storage/v1/object/public/products/products/xxx/image.jpg
+        const pathParts = url.pathname.split("/").filter((p) => p)
+        // 找到 'products' bucket 后的路径
+        const productsIndex = pathParts.indexOf("products")
+        if (productsIndex !== -1 && productsIndex < pathParts.length - 1) {
+          // 提取 products/xxx/image.jpg（包含 products）
+          path = pathParts.slice(productsIndex).join("/")
+        } else {
+          // 尝试直接从路径中提取（可能在 public 之后）
+          const publicIndex = pathParts.indexOf("public")
+          if (publicIndex !== -1 && publicIndex < pathParts.length - 1) {
+            path = pathParts.slice(publicIndex + 1).join("/")
+          } else {
+            return { error: new Error("Invalid file path: cannot extract path from URL") }
+          }
+        }
+      } catch (urlError) {
+        // 如果 URL 解析失败，尝试使用正则表达式提取
+        const match = filePath.match(/\/products\/(.+)$/)
+        if (match) {
+          path = `products/${match[1]}`
+        } else {
+          return { error: new Error("Invalid file path: cannot parse URL") }
+        }
+      }
+    } else {
+      // 如果已经是相对路径，直接使用
+      path = filePath.startsWith("products/") ? filePath : `products/${filePath}`
+    }
+
+    const { error } = await supabase.storage.from("products").remove([path])
+    if (error) {
+      return { error: error as Error }
+    }
+
+    return { error: null }
+  } catch (error) {
+    return { error: error as Error }
+  }
+}
+

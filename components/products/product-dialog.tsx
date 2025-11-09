@@ -33,7 +33,9 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Save, Trash2, Maximize2 } from "lucide-react"
+import { Loader2, Save, Trash2, Maximize2, X } from "lucide-react"
+import { ProductImageUpload } from "./product-image-upload"
+import { ProductAttachmentUpload } from "./product-attachment-upload"
 
 /**
  * 表单验证架构
@@ -55,6 +57,7 @@ const formSchema = z.object({
   is_active: z.boolean().default(true),
   notes: z.string().optional(),
   category_id: z.string().optional(),
+  project_id: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -98,6 +101,12 @@ interface ProductCategory {
   description: string | null
 }
 
+interface Project {
+  id: string
+  name: string
+  project_number: string
+}
+
 interface ProductDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -128,6 +137,11 @@ export function ProductDialog({
 }: ProductDialogProps) {
   const [loading, setLoading] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(true)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loadingProjects, setLoadingProjects] = useState(false)
+  const [images, setImages] = useState<string[]>([])
+  const [attachments, setAttachments] = useState<string[]>([])
+  const [pendingAttachmentFiles, setPendingAttachmentFiles] = useState<File[]>([])
   const { toast } = useToast()
   const supabase = createClient()
 
@@ -150,8 +164,41 @@ export function ProductDialog({
       is_active: true,
       notes: "",
       category_id: "",
+      project_id: "",
     },
   })
+
+  /**
+   * 加载项目列表
+   */
+  useEffect(() => {
+    const loadProjects = async () => {
+      if (!open) return
+      
+      setLoadingProjects(true)
+      try {
+        const { data, error } = await supabase
+          .from("projects")
+          .select("id, name, project_number")
+          .eq("status", "Active")
+          .order("created_at", { ascending: false })
+
+        if (error) throw error
+        setProjects(data || [])
+      } catch (error: any) {
+        console.error("Error loading projects:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load projects",
+          variant: "destructive",
+        })
+      } finally {
+        setLoadingProjects(false)
+      }
+    }
+
+    loadProjects()
+  }, [open, supabase, toast])
 
   /**
    * 从 localStorage 加载草稿
@@ -260,12 +307,37 @@ export function ProductDialog({
         is_active: product.is_active,
         notes: product.notes || "",
         category_id: product.category_id || "",
+        project_id: product.project_id || "",
       })
+
+      // 加载图片和附件
+      try {
+        const productImages = typeof product.images === "string" 
+          ? JSON.parse(product.images) 
+          : (Array.isArray(product.images) ? product.images : [])
+        setImages(Array.isArray(productImages) ? productImages : [])
+
+        const productAttachments = typeof product.attachments === "string"
+          ? JSON.parse(product.attachments)
+          : (Array.isArray(product.attachments) ? product.attachments : [])
+        setAttachments(Array.isArray(productAttachments) ? productAttachments : [])
+      } catch (error) {
+        console.error("Error parsing images/attachments:", error)
+        setImages([])
+        setAttachments([])
+      }
     } else {
       // 新建模式：尝试从 localStorage 恢复草稿
       const draft = loadDraft()
       if (draft) {
         form.reset(draft)
+        // 恢复图片和附件（如果有）
+        if (draft.images) {
+          setImages(Array.isArray(draft.images) ? draft.images : [])
+        }
+        if (draft.attachments) {
+          setAttachments(Array.isArray(draft.attachments) ? draft.attachments : [])
+        }
         toast({
           title: "Draft Restored",
           description: "Your previous draft has been restored",
@@ -288,10 +360,13 @@ export function ProductDialog({
           is_active: true,
           notes: "",
           category_id: "",
+          project_id: "",
         })
+        setImages([])
+        setAttachments([])
       }
     }
-  }, [product, form, open])
+  }, [product, form, open, toast])
 
   /**
    * 监听表单变化，自动保存草稿（仅在新建模式）
@@ -301,13 +376,23 @@ export function ProductDialog({
       const subscription = form.watch((value) => {
         // 防抖保存
         const timeoutId = setTimeout(() => {
-          saveDraft(value as FormValues)
+          const draftData = {
+            ...(value as FormValues),
+            images,
+            attachments,
+          }
+          // 保存到 localStorage（不显示 toast）
+          try {
+            localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftData))
+          } catch (error) {
+            console.error("Error saving draft:", error)
+          }
         }, 1000)
         return () => clearTimeout(timeoutId)
       })
       return () => subscription.unsubscribe()
     }
-  }, [form, product, open])
+  }, [form, product, open, images, attachments])
 
   /**
    * 表单提交处理
@@ -317,7 +402,7 @@ export function ProductDialog({
 
     try {
       // 准备数据，将字符串转换为数字
-      const data = {
+      const data: any = {
         part_number: values.part_number,
         name: values.name,
         name_cn: values.name_cn,
@@ -334,10 +419,16 @@ export function ProductDialog({
         is_active: values.is_active,
         notes: values.notes || null,
         category_id: values.category_id && values.category_id !== "none" ? values.category_id : null,
+        project_id: values.project_id && values.project_id !== "none" ? values.project_id : null,
+        images: JSON.stringify(images),
+        attachments: JSON.stringify(attachments),
       }
+
+      let productId: string
 
       if (product) {
         // 更新现有产品
+        productId = product.id
         const { error } = await supabase
           .from("products")
           .update(data)
@@ -351,9 +442,93 @@ export function ProductDialog({
         })
       } else {
         // 创建新产品
-        const { error } = await supabase.from("products").insert(data)
+        const { data: newProduct, error } = await supabase
+          .from("products")
+          .insert(data)
+          .select()
+          .single()
 
         if (error) throw error
+        productId = newProduct.id
+
+        // 如果是新建模式且有临时图片（base64），需要上传到服务器
+        if (images.length > 0) {
+          const { uploadProductImage } = await import("@/lib/supabase/storage")
+          const uploadedImages: string[] = []
+          
+          for (const imageUrl of images) {
+            // 如果是 base64 数据 URL，需要转换为文件并上传
+            if (imageUrl.startsWith("data:image/")) {
+              try {
+                // 将 base64 转换为 Blob
+                const response = await fetch(imageUrl)
+                const blob = await response.blob()
+                const file = new File([blob], `image-${Date.now()}.jpg`, { type: blob.type })
+                
+                const { url, error: uploadError } = await uploadProductImage(productId, file)
+                if (uploadError) {
+                  console.error("Error uploading image:", uploadError)
+                } else if (url) {
+                  uploadedImages.push(url)
+                }
+              } catch (error) {
+                console.error("Error processing image:", error)
+              }
+            } else {
+              // 已经是 URL，直接使用
+              uploadedImages.push(imageUrl)
+            }
+          }
+
+          // 更新产品图片
+          if (uploadedImages.length > 0) {
+            await supabase
+              .from("products")
+              .update({ images: JSON.stringify(uploadedImages) })
+              .eq("id", productId)
+          }
+        }
+
+        // 处理附件（新建模式下，需要上传待处理的文件）
+        if (pendingAttachmentFiles.length > 0) {
+          const { uploadProductAttachment } = await import("@/lib/supabase/storage")
+          const uploadedAttachments: string[] = []
+          
+          for (const file of pendingAttachmentFiles) {
+            try {
+              const { url, error: uploadError } = await uploadProductAttachment(productId, file)
+              if (uploadError) {
+                console.error("Error uploading attachment:", uploadError)
+                toast({
+                  title: "Upload Warning",
+                  description: `Failed to upload ${file.name}`,
+                  variant: "destructive",
+                })
+              } else if (url) {
+                uploadedAttachments.push(url)
+              }
+            } catch (error) {
+              console.error("Error processing attachment:", error)
+            }
+          }
+
+          // 更新产品附件
+          if (uploadedAttachments.length > 0) {
+            await supabase
+              .from("products")
+              .update({ attachments: JSON.stringify(uploadedAttachments) })
+              .eq("id", productId)
+          }
+        } else if (attachments.length > 0) {
+          // 如果只有已有的附件 URL（编辑模式），直接保存
+          const validAttachments = attachments.filter((att) => !att.startsWith("blob:"))
+          if (validAttachments.length > 0) {
+            await supabase
+              .from("products")
+              .update({ attachments: JSON.stringify(validAttachments) })
+              .eq("id", productId)
+          }
+        }
 
         toast({
           title: "Success",
@@ -364,6 +539,9 @@ export function ProductDialog({
       onOpenChange(false)
       onSuccess()
       form.reset()
+      setImages([])
+      setAttachments([])
+      setPendingAttachmentFiles([])
       // 成功提交后清除草稿
       clearDraft()
     } catch (error: any) {
@@ -379,9 +557,9 @@ export function ProductDialog({
       } else {
         toast({
           title: "Error",
-          description: product
+          description: error.message || (product
             ? "Failed to update product"
-            : "Failed to create product",
+            : "Failed to create product"),
           variant: "destructive",
         })
       }
@@ -459,6 +637,15 @@ export function ProductDialog({
                 title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
               >
                 <Maximize2 className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onOpenChange(false)}
+                title="Close"
+              >
+                <X className="h-4 w-4" />
               </Button>
             </div>
           </DialogHeader>
@@ -586,34 +773,68 @@ export function ProductDialog({
                 />
               </div>
 
-              <FormField
-                control={form.control}
-                name="category_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {categories.map((category) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="category_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="project_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Project</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        disabled={loadingProjects}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select project" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.project_number} - {project.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Associate this product with a project
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             {/* 定价信息部分 */}
@@ -751,6 +972,34 @@ export function ProductDialog({
                       <FormMessage />
                     </FormItem>
                   )}
+                />
+              </div>
+            </div>
+
+            {/* 图片和附件部分 */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Images & Attachments</h3>
+              
+              {/* 图片上传 */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">Product Images</label>
+                <ProductImageUpload
+                  productId={product?.id || null}
+                  images={images}
+                  onImagesChange={setImages}
+                  disabled={loading}
+                />
+              </div>
+
+              {/* 附件上传 */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">Attachments</label>
+                <ProductAttachmentUpload
+                  productId={product?.id || null}
+                  attachments={attachments}
+                  onAttachmentsChange={setAttachments}
+                  onFilesChange={setPendingAttachmentFiles}
+                  disabled={loading}
                 />
               </div>
             </div>

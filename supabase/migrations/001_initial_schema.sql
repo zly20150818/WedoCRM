@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS public.communication_logs (
     created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL
 );
 
--- ==================== 第三部分：产品和分类 ====================
+-- ==================== 第三部分：产品分类 ====================
 
 -- 创建 product_categories 表（产品分类表）
 CREATE TABLE IF NOT EXISTS public.product_categories (
@@ -130,33 +130,6 @@ CREATE TABLE IF NOT EXISTS public.product_categories (
     name_cn TEXT,
     description TEXT,
     parent_id TEXT REFERENCES public.product_categories(id) ON DELETE NO ACTION,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 创建 products 表（产品表）
-CREATE TABLE IF NOT EXISTS public.products (
-    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-    part_number TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
-    name_cn TEXT NOT NULL,
-    description TEXT,
-    description_cn TEXT,
-    unit TEXT DEFAULT 'PCS',
-    price_with_tax DECIMAL(15, 2),
-    price_without_tax DECIMAL(15, 2),
-    weight DECIMAL(10, 3),
-    volume DECIMAL(10, 3),
-    hs_code TEXT,
-    tax_refund_rate DECIMAL(5, 2),
-    packaging_info TEXT,
-    images TEXT DEFAULT '[]',
-    attachments TEXT DEFAULT '[]',
-    is_active BOOLEAN DEFAULT true,
-    notes TEXT,
-    category_id TEXT REFERENCES public.product_categories(id) ON DELETE SET NULL,
-    default_supplier_id TEXT,
-    project_id TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -222,7 +195,37 @@ CREATE TABLE IF NOT EXISTS public.project_documents (
     archived_at TIMESTAMPTZ
 );
 
--- ==================== 第五部分：销售相关表 ====================
+-- ==================== 第五部分：产品 ====================
+
+-- 创建 products 表（产品表）
+-- 注意：此表必须在 projects 表创建之后创建，因为 products 表引用了 projects 表
+CREATE TABLE IF NOT EXISTS public.products (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    part_number TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    name_cn TEXT NOT NULL,
+    description TEXT,
+    description_cn TEXT,
+    unit TEXT DEFAULT 'PCS',
+    price_with_tax DECIMAL(15, 2),
+    price_without_tax DECIMAL(15, 2),
+    weight DECIMAL(10, 3),
+    volume DECIMAL(10, 3),
+    hs_code TEXT,
+    tax_refund_rate DECIMAL(5, 2),
+    packaging_info TEXT,
+    images TEXT DEFAULT '[]',
+    attachments TEXT DEFAULT '[]',
+    is_active BOOLEAN DEFAULT true,
+    notes TEXT,
+    category_id TEXT REFERENCES public.product_categories(id) ON DELETE SET NULL,
+    default_supplier_id TEXT,
+    project_id TEXT REFERENCES public.projects(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ==================== 第六部分：销售相关表 ====================
 
 -- 创建 quotations 表（报价表）
 CREATE TABLE IF NOT EXISTS public.quotations (
