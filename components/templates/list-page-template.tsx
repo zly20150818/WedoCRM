@@ -45,6 +45,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Search, Plus, Eye, Edit, Trash2, Calendar as CalendarIcon, Filter } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
+import { MainLayout } from "@/components/layout/main-layout"
 
 // ==================== 配置区域 ====================
 // 📝 复制文件后，主要修改这个配置对象
@@ -204,7 +205,7 @@ export default function ListPageTemplate({ config = CONFIG }: ListPageTemplatePr
   const [selectedStatus, setSelectedStatus] = useState("all")
   const [filters, setFilters] = useState<Record<string, any>>({})
   const [sortField, setSortField] = useState(config.defaultSort.field)
-  const [sortDirection, setSortDirection] = useState(config.defaultSort.direction)
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">(config.defaultSort.direction as "asc" | "desc")
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [filterOptions, setFilterOptions] = useState<Record<string, any[]>>({})
@@ -302,6 +303,7 @@ export default function ListPageTemplate({ config = CONFIG }: ListPageTemplatePr
   const totalPages = Math.ceil(totalCount / config.pagination.pageSize)
 
   return (
+    <MainLayout>
     <div className="p-8">
       {/* 页面标题和创建按钮 */}
       <div className="flex items-center justify-between mb-8">
@@ -343,7 +345,7 @@ export default function ListPageTemplate({ config = CONFIG }: ListPageTemplatePr
                       setFilters({ ...filters, [filter.field]: value || null })
                     }
                   >
-                    <SelectTrigger className={filter.icon ? "pl-10" : ""}>
+                    <SelectTrigger className={(filter as any).icon ? "pl-10" : ""}>
                       <SelectValue placeholder={filter.placeholder} />
                     </SelectTrigger>
                     <SelectContent>
@@ -465,7 +467,7 @@ export default function ListPageTemplate({ config = CONFIG }: ListPageTemplatePr
                   {config.columns.map((column) => (
                     <TableCell key={column.key}>
                       {column.render
-                        ? column.render(row[column.key], row)
+                        ? (column as any).render(row[column.key], row)
                         : row[column.key] || "-"}
                     </TableCell>
                   ))}
@@ -516,5 +518,6 @@ export default function ListPageTemplate({ config = CONFIG }: ListPageTemplatePr
         </div>
       </div>
     </div>
+    </MainLayout>
   )
 }

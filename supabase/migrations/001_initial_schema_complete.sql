@@ -177,7 +177,7 @@ CREATE TABLE IF NOT EXISTS public.customers (
     source TEXT DEFAULT 'Other',
     notes TEXT,
     owner_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-    created_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+    created_by UUID REFERENCES auth.users(id) ON DELETE RESTRICT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

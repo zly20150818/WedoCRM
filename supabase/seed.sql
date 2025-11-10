@@ -9,8 +9,20 @@ INSERT INTO public.product_categories (id, name, name_cn, description) VALUES
   ('cat-hardware', 'Hardware', '五金制品', 'Hardware and metal products')
 ON CONFLICT (id) DO NOTHING;
 
--- ==================== 产品测试数据 ====================
- 
+-- ==================== 客户测试数据 ====================
+INSERT INTO public.customers (
+  customer_number, name, name_cn, country, city, address, website, email, phone
+) VALUES (
+  'CUST-0001', 'Acme Inc', '艾克米公司', 'United States', 'Los Angeles', '123 Sunset Blvd', 'https://acme.example.com', 'sales@acme.com', '+1-310-000-0000'
+)
+ON CONFLICT (customer_number) DO NOTHING;
+
+INSERT INTO public.customers (
+  customer_number, name, name_cn, country, city, address, website, email, phone
+) VALUES (
+  'CUST-0002', 'Beta Trading Co.', '贝塔贸易', 'China', 'Shanghai', '88 Pudong Ave', 'https://beta.example.cn', 'contact@beta.cn', '+86-21-0000-0000'
+)
+ON CONFLICT (customer_number) DO NOTHING;
 
 -- ==================== 配置基础数据 ====================
 

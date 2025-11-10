@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Supplier Details - AlustarsCRM</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#137fec",
+            "background-light": "#f6f7f8",
+            "background-dark": "#101922",
+          },
+          fontFamily: {
+            "display": ["Manrope"]
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings:
+        'FILL' 0,
+        'wght' 400,
+        'GRAD' 0,
+        'opsz' 24
+    }
+  </style>
+</head>
+<body class="font-display">
+<div class="relative flex h-auto min-h-screen w-full flex-col bg-background-light dark:bg-background-dark group/design-root overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#e5e7eb] dark:border-gray-700 bg-white dark:bg-background-dark px-10 py-3">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-4 text-[#1F2937] dark:text-white">
+<div class="size-6 text-primary">
+<svg fill="currentColor" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M24 18.4228L42 11.475V34.3663C42 34.7796 41.7457 35.1504 41.3601 35.2992L24 42V18.4228Z" fill-opacity="0.7"></path>
+<path clip-rule="evenodd" d="M24 8.18819L33.4123 11.574L24 15.2071L14.5877 11.574L24 8.18819ZM9 15.8487L21 20.4805V37.6263L9 32.9945V15.8487ZM27 37.6263V20.4805L39 15.8487V32.9945L27 37.6263ZM25.354 2.29885C24.4788 1.98402 23.5212 1.98402 22.646 2.29885L4.98454 8.65208C3.7939 9.08038 3 10.2097 3 11.475V34.3663C3 36.0196 4.01719 37.5026 5.55962 38.098L22.9197 44.7987C23.6149 45.0671 24.3851 45.0671 25.0803 44.7987L42.4404 38.098C43.9828 37.5026 45 36.0196 45 34.3663V11.475C45 10.2097 44.2061 9.08038 43.0155 8.65208L25.354 2.29885Z" fill="currentColor"></path>
+</svg>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">AlustarsCRM</h2>
+</div>
+<div class="flex items-center gap-9">
+<a class="text-[#1F2937] dark:text-gray-300 text-sm font-medium leading-normal" href="#">Dashboard</a>
+<a class="text-primary text-sm font-bold leading-normal" href="#">Suppliers</a>
+<a class="text-[#1F2937] dark:text-gray-300 text-sm font-medium leading-normal" href="#">Products</a>
+<a class="text-[#1F2937] dark:text-gray-300 text-sm font-medium leading-normal" href="#">Orders</a>
+</div>
+</div>
+<div class="flex flex-1 items-center justify-end gap-6">
+<label class="flex flex-col min-w-40 !h-10 max-w-64">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full">
+<div class="text-[#6b7280] dark:text-gray-400 flex border-none bg-[#e7edf3] dark:bg-gray-800 items-center justify-center pl-3 rounded-l-lg border-r-0">
+<span class="material-symbols-outlined" style="font-size: 20px;">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#1F2937] dark:text-white focus:outline-0 focus:ring-0 border-none bg-[#e7edf3] dark:bg-gray-800 focus:border-none h-full placeholder:text-[#6b7280] dark:placeholder:text-gray-400 px-4 rounded-l-none border-l-0 pl-2 text-sm font-normal leading-normal" placeholder="Search" value=""/>
+</div>
+</label>
+<div class="flex gap-2">
+<button class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 bg-[#e7edf3] dark:bg-gray-800 text-[#1F2937] dark:text-gray-300 gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-0 px-2.5">
+<span class="material-symbols-outlined" style="font-size: 20px;">notifications</span>
+</button>
+<button class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 bg-[#e7edf3] dark:bg-gray-800 text-[#1F2937] dark:text-gray-300 gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-0 px-2.5">
+<span class="material-symbols-outlined" style="font-size: 20px;">settings</span>
+</button>
+</div>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10" data-alt="User avatar image" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCtMcnONf-LKu91NmQMqDFsSn0g41uBkahIxUkQ5n5QXUZ-GcKwR1Erkx7kwnwE3UxBCnoPT_pi3qYIzdWTvPRYhEmTcwJWykHNtSeiH0IUXt3qw8XwzXbxhfYseoqjiCpnTPJ_Us9zz-NViINCclJ0BJbeMWmPGggLChq4BV6fX5CtctGPfKfJWo-xlAzuf7ccg-QOZzYx6pttM2zjgztxpykb3siE8qoQZnR8m7OgtcLVpKOvAlqNsL7YEILoDHkn5t83yP3Ww1M");'></div>
+</div>
+</header>
+<main class="flex-1 px-10 py-8">
+<div class="mx-auto max-w-5xl">
+<div class="flex flex-wrap justify-between gap-4 py-4 items-center">
+<div class="flex min-w-72 flex-col gap-3">
+<p class="text-[#1F2937] dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">Global Tech Manufacturing</p>
+<div class="flex items-center gap-4 text-sm text-[#6b7280] dark:text-gray-400">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[#F5A623]" style="font-size: 16px;">star</span>
+<span class="font-medium text-[#1F2937] dark:text-gray-200">4.5</span>
+<span class="text-xs">(12 Reviews)</span>
+</div>
+<span class="text-[#e5e7eb] dark:text-gray-700">|</span>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-size: 16px;">mail</span>
+<span>contact@globaltechmfg.com</span>
+</div>
+<span class="text-[#e5e7eb] dark:text-gray-700">|</span>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-size: 16px;">phone</span>
+<span>+1 234 567 890</span>
+</div>
+</div>
+</div>
+<button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] gap-2">
+<span class="material-symbols-outlined" style="font-size: 18px;">edit</span>
+<span class="truncate">Edit Supplier</span>
+</button>
+</div>
+<div class="mt-6">
+<div class="border-b border-[#e5e7eb] dark:border-gray-700">
+<div class="flex px-4 gap-8">
+<a class="flex flex-col items-center justify-center border-b-[3px] border-b-primary text-[#1F2937] dark:text-white pb-[13px] pt-4" href="#">
+<p class="text-sm font-bold leading-normal tracking-[0.015em]">Overview</p>
+</a>
+<a class="flex flex-col items-center justify-center border-b-[3px] border-b-transparent text-[#6b7280] dark:text-gray-400 pb-[13px] pt-4" href="#">
+<p class="text-sm font-bold leading-normal tracking-[0.015em]">Products</p>
+</a>
+<a class="flex flex-col items-center justify-center border-b-[3px] border-b-transparent text-[#6b7280] dark:text-gray-400 pb-[13px] pt-4" href="#">
+<p class="text-sm font-bold leading-normal tracking-[0.015em]">Purchase Orders</p>
+</a>
+<a class="flex flex-col items-center justify-center border-b-[3px] border-b-transparent text-[#6b7280] dark:text-gray-400 pb-[13px] pt-4" href="#">
+<p class="text-sm font-bold leading-normal tracking-[0.015em]">Notes</p>
+</a>
+</div>
+</div>
+<div class="pt-6">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="md:col-span-2 space-y-6">
+<!-- Company Information -->
+<div class="bg-white dark:bg-gray-800/50 rounded-lg border border-[#e5e7eb] dark:border-gray-700">
+<h3 class="text-[#1F2937] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] px-6 py-4 border-b border-[#e5e7eb] dark:border-gray-700">Company Information</h3>
+<div class="p-6 grid grid-cols-[30%_1fr] gap-x-6">
+<div class="col-span-2 grid grid-cols-subgrid py-3">
+<p class="text-[#6b7280] dark:text-gray-400 text-sm font-normal leading-normal">Business Registration No.</p>
+<p class="text-[#1F2937] dark:text-gray-200 text-sm font-medium leading-normal">123456789-ABC</p>
+</div>
+<div class="col-span-2 grid grid-cols-subgrid border-t border-t-[#e5e7eb] dark:border-t-gray-700 py-3">
+<p class="text-[#6b7280] dark:text-gray-400 text-sm font-normal leading-normal">Tax ID</p>
+<p class="text-[#1F2937] dark:text-gray-200 text-sm font-medium leading-normal">VAT-987654321</p>
+</div>
+<div class="col-span-2 grid grid-cols-subgrid border-t border-t-[#e5e7eb] dark:border-t-gray-700 py-3">
+<p class="text-[#6b7280] dark:text-gray-400 text-sm font-normal leading-normal">Industry</p>
+<p class="text-[#1F2937] dark:text-gray-200 text-sm font-medium leading-normal">Electronics Manufacturing</p>
+</div>
+<div class="col-span-2 grid grid-cols-subgrid border-t border-t-[#e5e7eb] dark:border-t-gray-700 py-3">
+<p class="text-[#6b7280] dark:text-gray-400 text-sm font-normal leading-normal">Website</p>
+<a class="text-primary text-sm font-medium leading-normal" href="#">www.globaltechmfg.com</a>
+</div>
+</div>
+</div>
+<!-- Bank Information -->
+<div class="bg-white dark:bg-gray-800/50 rounded-lg border border-[#e5e7eb] dark:border-gray-700">
+<h3 class="text-[#1F2937] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] px-6 py-4 border-b border-[#e5e7eb] dark:border-gray-700">Bank Information</h3>
+<div class="p-6 grid grid-cols-[30%_1fr] gap-x-6">
+<div class="col-span-2 grid grid-cols-subgrid py-3">
+<p class="text-[#6b7280] dark:text-gray-400 text-sm font-normal leading-normal">Bank Name</p>
+<p class="text-[#1F2937] dark:text-gray-200 text-sm font-medium leading-normal">International Commerce Bank</p>
+</div>
+<div class="col-span-2 grid grid-cols-subgrid border-t border-t-[#e5e7eb] dark:border-t-gray-700 py-3">
+<p class="text-[#6b7280] dark:text-gray-400 text-sm font-normal leading-normal">Account Number</p>
+<p class="text-[#1F2937] dark:text-gray-200 text-sm font-medium leading-normal">**** **** **** 8910</p>
+</div>
+<div class="col-span-2 grid grid-cols-subgrid border-t border-t-[#e5e7eb] dark:border-t-gray-700 py-3">
+<p class="text-[#6b7280] dark:text-gray-400 text-sm font-normal leading-normal">SWIFT / IBAN</p>
+<p class="text-[#1F2937] dark:text-gray-200 text-sm font-medium leading-normal">ICBKUS33 / US123456789012345678</p>
+</div>
+</div>
+</div>
+</div>
+<div class="md:col-span-1 space-y-6">
+<!-- Address Details -->
+<div class="bg-white dark:bg-gray-800/50 rounded-lg border border-[#e5e7eb] dark:border-gray-700">
+<h3 class="text-[#1F2937] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] px-6 py-4 border-b border-[#e5e7eb] dark:border-gray-700">Address Details</h3>
+<div class="p-6 space-y-4">
+<div>
+<p class="text-[#6b7280] dark:text-gray-400 text-xs font-medium uppercase">Billing Address</p>
+<p class="text-[#1F2937] dark:text-gray-200 text-sm mt-1">123 Tech Park Avenue<br/>Silicon Valley, CA 94043<br/>United States</p>
+</div>
+<div class="border-t border-t-[#e5e7eb] dark:border-t-gray-700 pt-4">
+<p class="text-[#6b7280] dark:text-gray-400 text-xs font-medium uppercase">Shipping Address</p>
+<p class="text-[#1F2937] dark:text-gray-200 text-sm mt-1">456 Industrial Rd<br/>Warehouse B<br/>Fremont, CA 94538<br/>United States</p>
+</div>
+</div>
+</div>
+<!-- Main Contacts -->
+<div class="bg-white dark:bg-gray-800/50 rounded-lg border border-[#e5e7eb] dark:border-gray-700">
+<h3 class="text-[#1F2937] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] px-6 py-4 border-b border-[#e5e7eb] dark:border-gray-700">Main Contacts</h3>
+<div class="p-6 space-y-4">
+<div class="flex items-center gap-4">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10" data-alt="Avatar of Jane Doe" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuB0w1G1d62Q6isgH4i2hVCzXuh7y6_2819m5WRJ87yVAlVHHKtJgYZHzVdhm0Wd1tYcOsAFyogPmkhaQ4xTtKoLKWXd5jDx8ILTW_TJ2a8fWpTcW7qIL2YanhKFG8_vL3xgG4huNg-1NRi7C1EKUCo4zcdTsqHM4LglnLLcN9Z_ZHK-94r7Ijsx-TBrW5xt-p12UOOIagXSs2a8G2TyQc1_gTds2FmKdNbw3MJAtyKZg0fZIuhdMLwDjWcvqgcRBuPeOABNwVkrRiw");'></div>
+<div>
+<p class="text-sm font-bold text-[#1F2937] dark:text-white">Jane Doe</p>
+<p class="text-xs text-[#6b7280] dark:text-gray-400">Sales Manager</p>
+</div>
+</div>
+<div class="flex items-center gap-4 border-t border-[#e5e7eb] dark:border-gray-700 pt-4">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10" data-alt="Avatar of John Smith" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBTVI1k-Ajd3vHepb9iZ7dYZSETDh7zAHkrdu6-mVsvDvEk8Rkz7rdB_cKPoVfSBTEpKPmkJsfhyDHvPmD0gPvXTTUSim4-1x_QzR588wWXdmUYNISVSCQup26LAuw3APNIWcHpfeiRFn6P8o-M2KgCyvLZxrFmZmektCB6cGCwlkXw466HtTkD6nCRWuOS3z8f_j3MnhpZ858MLwMZ_0yCUBOcGOHJu_Yk31clo7W0a7uPIHNGBM7yLSuWd020Y4JUk_3MUgi1mh8");'></div>
+<div>
+<p class="text-sm font-bold text-[#1F2937] dark:text-white">John Smith</p>
+<p class="text-xs text-[#6b7280] dark:text-gray-400">Account Executive</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</body></html>

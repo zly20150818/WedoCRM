@@ -110,9 +110,7 @@ const menuItems = [
 ]
 ```
 
-3️⃣ 添加翻译 / Add translations:
-
-编辑 `components/language-provider.tsx`:
+ 
 
 ```tsx
 const translations = {
