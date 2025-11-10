@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { Suspense } from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -13,7 +14,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useAuth } from "@/components/auth-provider"
 import { Building2, Eye, EyeOff } from "lucide-react"
 
-export default function LoginPage() {
+// 将使用 searchParams 的逻辑分离到单独的组件
+function LoginForm() {
   const { login, isLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -140,5 +142,21 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+// 主页面组件用 Suspense 包裹 LoginForm
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }
