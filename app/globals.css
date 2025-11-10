@@ -4,53 +4,67 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
+    /* 配色灵感自 code.html/screen.png, 现代淡分层 */
+    --background: 210 40% 98%;      /* #f8fafc, 主体极浅灰 */
+    --foreground: 222.2 84% 4.9%;   /* 深灰文本 */
+    --card: 0 0% 100%;              /* 真白，卡片专属 */
+    --card-foreground: 222.2 84% 4.9%; 
+    --popover: 0 0% 100%;           /* 与卡片一致 */
+    --popover-foreground: 222.2 84% 4.9%; 
+    --primary: 221.2 83.2% 53.3%;   /* 品牌蓝 */
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
+    --secondary: 210 40% 96%;     /* input/button 背景 #f1f5f9 */
+    --secondary-foreground: 222.2 84% 4.9%; 
+    --muted: 210 40% 96%;           /* 用于分割和间隔 */
     --muted-foreground: 215.4 16.3% 46.9%;
     --accent: 210 40% 96%;
     --accent-foreground: 222.2 84% 4.9%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --border: 214.3 31.8% 91.4%;     /* #e2e8f0, card 边框 */
+    --input: 214.3 31.8% 91.4%;      /* #e2e8f0, input 外边框 */
+    --ring: 221.2 83.2% 58%;         /* 取品牌主色高亮 */
     --radius: 0.75rem;
+
+    --primary-html: 212 92% 50%; /* #137fec */
+    --background-light-html: 210 20% 97%; /* #f6f7f8 */
+    --background-dark-html: 210 20% 10%; /* #101922 */
+    --content-light-html: 0 0% 100%; /* #ffffff */
+    --content-dark-html: 210 20% 15%; /* #1a2734 */
+    --text-light-primary-html: 210 10% 8%; /* #111418 */
+    --text-dark-primary-html: 210 20% 97%; /* #f6f7f8 */
+    --text-light-secondary-html: 210 10% 40%; /* #617589 */
+    --text-dark-secondary-html: 210 10% 60%; /* #9ca3af */
+    --border-light-html: 210 10% 85%; /* #dbe0e6 */
+    --border-dark-html: 210 10% 25%; /* #374151 */
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
   }
-
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    /* 提高各层对比：body、card、border 三个值明显区分 */
+    --background: 222.2 40% 10%;      /* #181a20 */
+    --foreground: 210 40% 98%;        /* #f3f6fc */
+    --card: 222.2 25% 16%;            /* #22242a   */
+    --card-foreground: 210 40% 98%;   
+    --popover: 224 16% 20%;           /* #292c31 */
+    --popover-foreground: 210 40% 98%; 
     --primary: 217.2 91.2% 59.8%;
     --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
+    --secondary: 215 18% 24%;         /* #27303b, input/button背景 */
+    --secondary-foreground: 210 40% 95%;
+    --muted: 228 14% 22%;            /* #262933, 间隔/填充 */
     --muted-foreground: 215 20.2% 65.1%;
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --border: 220 13% 27%;            /* #313340, card 边框和 input 框 */
+    --input: 225 13% 20%;             /* #262930, 更深 */
     --ring: 224.3 76.3% 94.1%;
+    --radius: 0.75rem;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -60,10 +74,6 @@
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
 }

@@ -4,7 +4,7 @@
  * 这些函数展示了如何在外贸出口管理系统中使用 Supabase 进行数据操作
  */
 
-import { createClient } from "@/lib/supabase/client"
+import { createClient as supabaseClient } from "@/lib/supabase/client"
 import type { Database } from "@/lib/supabase/types"
 
 type Client = Database["public"]["Tables"]["clients"]["Row"]
@@ -19,7 +19,7 @@ type OrderAlert = Database["public"]["Tables"]["order_alerts"]["Row"]
  * 获取所有客户
  */
 export async function getClients() {
-  const supabase = createClient()
+  const supabase = supabaseClient()
   const { data, error } = await supabase
     .from("clients")
     .select("*")
@@ -37,7 +37,7 @@ export async function getClients() {
  * 根据 ID 获取客户
  */
 export async function getClientById(id: string) {
-  const supabase = createClient()
+  const supabase = supabaseClient()
   const { data, error } = await supabase
     .from("clients")
     .select("*")
@@ -56,7 +56,7 @@ export async function getClientById(id: string) {
  * 创建新客户
  */
 export async function createClient(client: Database["public"]["Tables"]["clients"]["Insert"]) {
-  const supabase = createClient()
+  const supabase = supabaseClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -85,7 +85,7 @@ export async function updateClient(
   id: string,
   updates: Database["public"]["Tables"]["clients"]["Update"]
 ) {
-  const supabase = createClient()
+  const supabase = supabaseClient()
   const { data, error } = await supabase
     .from("clients")
     .update(updates)
@@ -105,7 +105,7 @@ export async function updateClient(
  * 删除客户
  */
 export async function deleteClient(id: string) {
-  const supabase = createClient()
+  const supabase = supabaseClient()
   const { error } = await supabase.from("clients").delete().eq("id", id)
 
   if (error) {
@@ -122,7 +122,7 @@ export async function deleteClient(id: string) {
  * 获取所有产品
  */
 export async function getProducts() {
-  const supabase = createClient()
+  const supabase = supabaseClient()
   const { data, error } = await supabase
     .from("products")
     .select("*")
@@ -140,7 +140,7 @@ export async function getProducts() {
  * 创建产品
  */
 export async function createProduct(product: Database["public"]["Tables"]["products"]["Insert"]) {
-  const supabase = createClient()
+  const supabase = supabaseClient()
   const { data, error } = await supabase
     .from("products")
     .insert(product)
@@ -161,7 +161,7 @@ export async function createProduct(product: Database["public"]["Tables"]["produ
  * 获取所有订单
  */
 export async function getOrders() {
-  const supabase = createClient()
+  const supabase = supabaseClient()
   const { data, error } = await supabase
     .from("orders")
     .select(`
@@ -183,7 +183,7 @@ export async function getOrders() {
  * 创建订单
  */
 export async function createOrder(order: Database["public"]["Tables"]["orders"]["Insert"]) {
-  const supabase = createClient()
+  const supabase = supabaseClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -211,7 +211,7 @@ export async function createOrder(order: Database["public"]["Tables"]["orders"][
  * 获取订单的物流信息
  */
 export async function getLogisticsByOrderId(orderId: string) {
-  const supabase = createClient()
+  const supabase = supabaseClient()
   const { data, error } = await supabase
     .from("logistics")
     .select("*")
@@ -230,7 +230,7 @@ export async function getLogisticsByOrderId(orderId: string) {
  * 创建物流记录
  */
 export async function createLogistics(logistics: Database["public"]["Tables"]["logistics"]["Insert"]) {
-  const supabase = createClient()
+  const supabase = supabaseClient()
   const { data, error } = await supabase
     .from("logistics")
     .insert(logistics)
@@ -251,7 +251,7 @@ export async function createLogistics(logistics: Database["public"]["Tables"]["l
  * 获取所有订单预警
  */
 export async function getOrderAlerts() {
-  const supabase = createClient()
+  const supabase = supabaseClient()
   const { data, error } = await supabase
     .from("order_alerts")
     .select(`
@@ -275,7 +275,7 @@ export async function getOrderAlerts() {
 export async function createOrderAlert(
   alert: Database["public"]["Tables"]["order_alerts"]["Insert"]
 ) {
-  const supabase = createClient()
+  const supabase = supabaseClient()
   const { data, error } = await supabase
     .from("order_alerts")
     .insert(alert)
@@ -296,7 +296,7 @@ export async function createOrderAlert(
  * 订阅订单数据变化（实时更新）
  */
 export function subscribeToOrders(callback: (payload: any) => void) {
-  const supabase = createClient()
+  const supabase = supabaseClient()
   return supabase
     .channel("orders-changes")
     .on(
@@ -315,7 +315,7 @@ export function subscribeToOrders(callback: (payload: any) => void) {
  * 订阅物流状态变化
  */
 export function subscribeToLogistics(callback: (payload: any) => void) {
-  const supabase = createClient()
+  const supabase = supabaseClient()
   return supabase
     .channel("logistics-changes")
     .on(
@@ -334,7 +334,7 @@ export function subscribeToLogistics(callback: (payload: any) => void) {
  * 订阅订单预警变化
  */
 export function subscribeToOrderAlerts(callback: (payload: any) => void) {
-  const supabase = createClient()
+  const supabase = supabaseClient()
   return supabase
     .channel("order-alerts-changes")
     .on(

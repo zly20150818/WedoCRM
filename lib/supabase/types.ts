@@ -279,6 +279,110 @@ export interface Database {
           updated_at?: string
         }
       }
+      suppliers: {
+        Row: {
+          id: string
+          name: string
+          rating: number | null
+          reviews_count: number | null
+          email: string | null
+          phone: string | null
+          business_registration_no: string | null
+          tax_id: string | null
+          industry: string | null
+          website: string | null
+          bank_name: string | null
+          account_number_last_four: string | null
+          swift_iban: string | null
+          billing_address_street: string | null
+          billing_address_city: string | null
+          billing_address_state: string | null
+          billing_address_zip: string | null
+          billing_address_country: string | null
+          shipping_address_street: string | null
+          shipping_address_warehouse: string | null
+          shipping_address_city: string | null
+          shipping_address_state: string | null
+          shipping_address_zip: string | null
+          shipping_address_country: string | null
+          main_contact_jane_doe_name: string | null
+          main_contact_jane_doe_title: string | null
+          main_contact_jane_doe_avatar_url: string | null
+          main_contact_john_smith_name: string | null
+          main_contact_john_smith_title: string | null
+          main_contact_john_smith_avatar_url: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          rating?: number | null
+          reviews_count?: number | null
+          email?: string | null
+          phone?: string | null
+          business_registration_no?: string | null
+          tax_id?: string | null
+          industry?: string | null
+          website?: string | null
+          bank_name?: string | null
+          account_number_last_four?: string | null
+          swift_iban?: string | null
+          billing_address_street?: string | null
+          billing_address_city?: string | null
+          billing_address_state?: string | null
+          billing_address_zip?: string | null
+          billing_address_country?: string | null
+          shipping_address_street?: string | null
+          shipping_address_warehouse?: string | null
+          shipping_address_city?: string | null
+          shipping_address_state?: string | null
+          shipping_address_zip?: string | null
+          shipping_address_country?: string | null
+          main_contact_jane_doe_name?: string | null
+          main_contact_jane_doe_title?: string | null
+          main_contact_jane_doe_avatar_url?: string | null
+          main_contact_john_smith_name?: string | null
+          main_contact_john_smith_title?: string | null
+          main_contact_john_smith_avatar_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          rating?: number | null
+          reviews_count?: number | null
+          email?: string | null
+          phone?: string | null
+          business_registration_no?: string | null
+          tax_id?: string | null
+          industry?: string | null
+          website?: string | null
+          bank_name?: string | null
+          account_number_last_four?: string | null
+          swift_iban?: string | null
+          billing_address_street?: string | null
+          billing_address_city?: string | null
+          billing_address_state?: string | null
+          billing_address_zip?: string | null
+          billing_address_country?: string | null
+          shipping_address_street?: string | null
+          shipping_address_warehouse?: string | null
+          shipping_address_city?: string | null
+          shipping_address_state?: string | null
+          shipping_address_zip?: string | null
+          shipping_address_country?: string | null
+          main_contact_jane_doe_name?: string | null
+          main_contact_jane_doe_title?: string | null
+          main_contact_jane_doe_avatar_url?: string | null
+          main_contact_john_smith_name?: string | null
+          main_contact_john_smith_title?: string | null
+          main_contact_john_smith_avatar_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

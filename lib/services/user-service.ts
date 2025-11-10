@@ -1,198 +1,175 @@
 import { createClient } from "@/lib/supabase/client"
-
-/**
- * 用户 Profile 类型
- */
-export interface UserProfile {
-  id: string
-  email: string
-  first_name: string
-  last_name: string
-  company: string | null
-  role: string
-  avatar: string | null
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
+import type { UserProfile } from "@/lib/types/user"
+import { mapSupabaseUserToProfile, mapProfileUpdatesToMetadata } from "@/lib/types/user"
 
 /**
  * 用户服务类
  * 提供统一的用户数据操作接口
+ * 注意：用户数据现在存储在 auth.users 的 user_metadata 中，不再使用 profiles 表
  */
 export class UserService {
   private supabase = createClient()
 
   /**
-   * 获取用户详情
+   * 获取当前登录用户
    */
-  async getUserById(userId: string) {
-    const { data, error } = await this.supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single()
+  async getCurrentUser(): Promise<{ data: UserProfile | null; error: any }> {
+    try {
+      const { data: { user }, error } = await this.supabase.auth.getUser()
+      
+      if (error) {
+        console.error("Error fetching current user:", error)
+        return { data: null, error }
+      }
 
-    if (error) {
-      console.error("Error fetching user:", error)
+      if (!user) {
+        return { data: null, error: null }
+      }
+
+      return {
+        data: mapSupabaseUserToProfile(user),
+        error: null
+      }
+    } catch (error) {
+      console.error("Error in getCurrentUser:", error)
       return { data: null, error }
     }
-
-    return { data: data as UserProfile, error: null }
   }
 
   /**
-   * 更新用户信息
+   * 更新当前用户信息
+   * 更新 auth.users 的 user_metadata
    */
-  async updateUser(userId: string, updates: Partial<UserProfile>) {
-    // 自动更新 updated_at
-    const { data, error } = await this.supabase
-      .from("profiles")
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userId)
-      .select()
-      .single()
+  async updateCurrentUser(updates: Partial<UserProfile>): Promise<{ data: UserProfile | null; error: any }> {
+    try {
+      const metadata = mapProfileUpdatesToMetadata(updates)
 
-    if (error) {
-      console.error("Error updating user:", error)
+      const { data, error } = await this.supabase.auth.updateUser({
+        data: metadata
+      })
+
+      if (error) {
+        console.error("Error updating user:", error)
+        return { data: null, error }
+      }
+
+      return {
+        data: data.user ? mapSupabaseUserToProfile(data.user) : null,
+        error: null
+      }
+    } catch (error) {
+      console.error("Error in updateCurrentUser:", error)
       return { data: null, error }
     }
+  }
 
-    return { data: data as UserProfile, error: null }
+  /**
+   * 获取用户详情（通过 ID）
+   * @deprecated 客户端无法直接访问其他用户信息，请使用 API Route: /api/admin/users/:id
+   */
+  async getUserById(userId: string) {
+    console.warn("getUserById should be called from API routes with service role key")
+    return { 
+      data: null, 
+      error: new Error("This method should be called from server-side API routes") 
+    }
+  }
+
+  /**
+   * 更新用户信息（管理员功能）
+   * @deprecated 请使用 API Route: /api/admin/users/:id
+   */
+  async updateUser(userId: string, updates: Partial<UserProfile>) {
+    console.warn("updateUser should be called from API routes with service role key")
+    return { 
+      data: null, 
+      error: new Error("This method should be called from server-side API routes") 
+    }
   }
 
   /**
    * 按角色查询用户列表
+   * @deprecated 请使用 API Route: /api/admin/users?role=xxx
    */
   async getUsersByRole(role: string) {
-    const { data, error } = await this.supabase
-      .from("profiles")
-      .select("*")
-      .eq("role", role)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-
-    if (error) {
-      console.error("Error fetching users by role:", error)
-      return { data: null, error }
+    console.warn("getUsersByRole should be called from API routes with service role key")
+    return { 
+      data: null, 
+      error: new Error("This method should be called from server-side API routes") 
     }
-
-    return { data: data as UserProfile[], error: null }
   }
 
   /**
    * 搜索用户
-   * 支持按邮箱、姓名、公司搜索
+   * @deprecated 请使用 API Route: /api/admin/users?search=xxx
    */
   async searchUsers(query: string) {
-    const { data, error } = await this.supabase
-      .from("profiles")
-      .select("*")
-      .or(
-        `email.ilike.%${query}%,first_name.ilike.%${query}%,last_name.ilike.%${query}%,company.ilike.%${query}%`
-      )
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(50)
-
-    if (error) {
-      console.error("Error searching users:", error)
-      return { data: null, error }
+    console.warn("searchUsers should be called from API routes")
+    return { 
+      data: null, 
+      error: new Error("This method should be called from server-side API routes") 
     }
-
-    return { data: data as UserProfile[], error: null }
   }
 
   /**
    * 获取所有活跃用户
+   * @deprecated 请使用 API Route: /api/admin/users?active=true
    */
   async getActiveUsers() {
-    const { data, error } = await this.supabase
-      .from("profiles")
-      .select("*")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-
-    if (error) {
-      console.error("Error fetching active users:", error)
-      return { data: null, error }
+    console.warn("getActiveUsers should be called from API routes")
+    return { 
+      data: null, 
+      error: new Error("This method should be called from server-side API routes") 
     }
-
-    return { data: data as UserProfile[], error: null }
   }
 
   /**
    * 停用用户
+   * @deprecated 请使用 API Route: PATCH /api/admin/users/:id
    */
   async deactivateUser(userId: string) {
-    return this.updateUser(userId, { is_active: false })
+    return this.updateUser(userId, { isActive: false })
   }
 
   /**
    * 激活用户
+   * @deprecated 请使用 API Route: PATCH /api/admin/users/:id
    */
   async activateUser(userId: string) {
-    return this.updateUser(userId, { is_active: true })
+    return this.updateUser(userId, { isActive: true })
   }
 
   /**
    * 更新用户角色
-   * 注意：需要管理员权限
+   * @deprecated 请使用 API Route: PATCH /api/admin/users/:id
    */
   async updateUserRole(userId: string, newRole: string) {
-    return this.updateUser(userId, { role: newRole })
+    return this.updateUser(userId, { role: newRole as any })
   }
 
   /**
    * 获取用户统计信息
+   * @deprecated 请使用 API Route: GET /api/admin/users/stats
    */
   async getUserStats() {
-    const { data: allUsers, error: allError } = await this.supabase
-      .from("profiles")
-      .select("id, role, is_active")
-
-    if (allError) {
-      console.error("Error fetching user stats:", allError)
-      return {
-        total: 0,
-        active: 0,
-        inactive: 0,
-        byRole: {},
-      }
+    console.warn("getUserStats should be called from API routes")
+    return {
+      total: 0,
+      active: 0,
+      inactive: 0,
+      byRole: {},
     }
-
-    const stats = {
-      total: allUsers.length,
-      active: allUsers.filter((u) => u.is_active).length,
-      inactive: allUsers.filter((u) => !u.is_active).length,
-      byRole: allUsers.reduce((acc, user) => {
-        acc[user.role] = (acc[user.role] || 0) + 1
-        return acc
-      }, {} as Record<string, number>),
-    }
-
-    return stats
   }
 
   /**
    * 检查邮箱是否已存在
+   * 注意：这个功能在 Supabase Auth 中会自动处理
    */
   async isEmailExists(email: string) {
-    const { data, error } = await this.supabase
-      .from("profiles")
-      .select("id")
-      .eq("email", email)
-      .single()
-
-    if (error && error.code !== "PGRST116") {
-      console.error("Error checking email:", error)
-      return { exists: false, error }
-    }
-
-    return { exists: !!data, error: null }
+    // Supabase Auth 会在注册时自动检查邮箱是否存在
+    // 这里返回一个提示信息
+    console.info("Email uniqueness is handled by Supabase Auth during registration")
+    return { exists: false, error: null }
   }
 }
 

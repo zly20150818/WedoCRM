@@ -27,6 +27,17 @@ const config: Config = {
   				DEFAULT: 'hsl(var(--primary))',
   				foreground: 'hsl(var(--primary-foreground))'
   			},
+        "primary-html": "hsl(var(--primary-html))",
+        "background-light-html": "hsl(var(--background-light-html))",
+        "background-dark-html": "hsl(var(--background-dark-html))",
+        "content-light-html": "hsl(var(--content-light-html))",
+        "content-dark-html": "hsl(var(--content-dark-html))",
+        "text-light-primary-html": "hsl(var(--text-light-primary-html))",
+        "text-dark-primary-html": "hsl(var(--text-dark-primary-html))",
+        "text-light-secondary-html": "hsl(var(--text-light-secondary-html))",
+        "text-dark-secondary-html": "hsl(var(--text-dark-secondary-html))",
+        "border-light-html": "hsl(var(--border-light-html))",
+        "border-dark-html": "hsl(var(--border-dark-html))",
   			secondary: {
   				DEFAULT: 'hsl(var(--secondary))',
   				foreground: 'hsl(var(--secondary-foreground))'
@@ -67,8 +78,14 @@ const config: Config = {
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
+  			sm: 'calc(var(--radius) - 4px)',
+        "DEFAULT": "0.25rem", 
+        "xl": "0.75rem", 
+        "full": "9999px"
   		},
+      fontFamily: {
+        "display": ["Manrope", "sans-serif"]
+      },
   		keyframes: {
   			'accordion-down': {
   				from: {

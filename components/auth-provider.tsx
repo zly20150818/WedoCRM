@@ -1,446 +1,71 @@
-"use client"
+﻿"use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { createClient } from "@/lib/supabase/client"
-import type { User as SupabaseUser } from "@supabase/supabase-js"
-import { saveUserToCache, getUserFromCache, clearUserCache } from "@/lib/utils/user-cache"
-
-export interface User {
-  id: string
-  email: string
-  firstName: string
-  lastName: string
-  company?: string
-  role: string
-}
+import type { UserProfile, RegisterData } from "@/lib/types/user"
+import { mapSupabaseUserToProfile } from "@/lib/types/user"
 
 interface AuthContextType {
-  user: User | null
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
-  register: (userData: {
-    firstName: string
-    lastName: string
-    email: string
-    company?: string
-    password: string
-  }) => Promise<{ success: boolean; error?: string }>
-  logout: () => Promise<void>
+  user: UserProfile | null
   isLoading: boolean
   isAuthenticated: boolean
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  register: (userData: RegisterData) => Promise<{ success: boolean; error?: string }>
+  logout: () => Promise<void>
+  updateProfile: (updates: Partial<UserProfile>) => Promise<{ success: boolean; error?: string }>
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true) // 初始为 true，检查 session
+  const [user, setUser] = useState<UserProfile | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const supabase = createClient()
 
+  const refreshUser = async () => {
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    setUser(authUser ? mapSupabaseUserToProfile(authUser) : null)
+  }
+
   useEffect(() => {
-    let mounted = true
-
-    // Check for existing session
-    const checkSession = async () => {
-      try {
-        console.log("Checking session...")
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession()
-
-        if (!mounted) return
-
-        // 如果获取 session 时出错，尝试刷新 token
-        if (sessionError) {
-          console.error("Error getting session:", sessionError)
-          console.warn("Session error detected, attempting to refresh token...")
-          
-          // 尝试刷新 token
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-          
-          if (refreshError || !refreshData.session) {
-            console.error("Token refresh failed:", refreshError)
-            console.warn("Cannot refresh token, clearing session and redirecting to login...")
-            try {
-              await supabase.auth.signOut()
-            } catch (e) {
-              console.error("Error during signOut:", e)
-            }
-            if (mounted) {
-              setUser(null)
-              setIsLoading(false)
-            }
-            window.location.href = "/login?error=session_expired"
-            return
-          }
-          
-          // Token 刷新成功，使用新的 session
-          console.log("Token refreshed successfully")
-          if (refreshData.session?.user) {
-            await loadUserProfile(refreshData.session.user)
-          }
-          return
-        }
-
-        if (session?.user) {
-          console.log("Session found, loading profile...")
-          await loadUserProfile(session.user)
-        } else {
-          console.log("No session found")
-        }
-      } catch (error: any) {
-        console.error("Exception checking session:", error)
-        
-        // 尝试刷新 token 作为最后的补救措施
-        console.warn("Exception occurred, attempting to refresh token...")
-        try {
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-          
-          if (!refreshError && refreshData.session?.user) {
-            console.log("Token refreshed successfully after exception")
-            if (mounted) {
-              await loadUserProfile(refreshData.session.user)
-              setIsLoading(false)
-            }
-            return
-          }
-        } catch (refreshErr) {
-          console.error("Token refresh failed:", refreshErr)
-        }
-        
-        // 刷新失败，清除 session 并跳转登录
-        console.warn("Cannot recover session, clearing and redirecting to login...")
-        try {
-          await supabase.auth.signOut()
-        } catch (e) {
-          console.error("Error during signOut:", e)
-        }
-        if (mounted) {
-          setUser(null)
-          setIsLoading(false)
-        }
-        window.location.href = "/login?error=session_error"
-        return
-      } finally {
-        if (mounted) {
-          console.log("Setting isLoading to false")
-          setIsLoading(false)
-        }
-      }
-    }
-
-    checkSession()
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!mounted) return
-
-      if (session?.user) {
-        await loadUserProfile(session.user)
-      } else {
-        setUser(null)
-      }
+    // 检查初始 session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ? mapSupabaseUserToProfile(session.user) : null)
       setIsLoading(false)
     })
 
-    return () => {
-      mounted = false
-      subscription.unsubscribe()
-    }
-  }, [])
+    // 监听认证状态变化
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ? mapSupabaseUserToProfile(session.user) : null)
+      setIsLoading(false)
+    })
 
-  const loadUserProfile = async (supabaseUser: SupabaseUser, forceRefresh = false) => {
+    return () => subscription.unsubscribe()
+  }, [supabase])
+
+  const login = async (email: string, password: string) => {
     try {
-      console.log(`Loading profile for user: ${supabaseUser.id}`)
-      
-      // 1. 如果不是强制刷新，先尝试从缓存获取
-      if (!forceRefresh) {
-        const cachedUser = getUserFromCache(supabaseUser.id)
-        if (cachedUser) {
-          console.log("Using cached user data, no database query needed")
-          setUser(cachedUser)
-          
-          // 后台静默刷新（可选）：在后台更新缓存
-          setTimeout(async () => {
-            try {
-              console.log("Background refresh: updating user cache...")
-              const { data: profile } = await supabase
-                .from("profiles")
-                .select("*")
-                .eq("id", supabaseUser.id)
-                .single()
-              
-              if (profile) {
-                const updatedUser: User = {
-                  id: profile.id,
-                  email: profile.email,
-                  firstName: profile.first_name || "",
-                  lastName: profile.last_name || "",
-                  company: profile.company || undefined,
-                  role: profile.role || "User",
-                }
-                saveUserToCache(updatedUser)
-                setUser(updatedUser)
-                console.log("Background refresh completed")
-              }
-            } catch (error) {
-              console.error("Background refresh failed:", error)
-            }
-          }, 2000) // 2秒后静默刷新
-          
-          return
-        } else {
-          console.log("No valid cache found, querying database...")
-        }
-      } else {
-        console.log("Force refresh requested, querying database...")
-      }
-      
-      // 2. 从数据库查询
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", supabaseUser.id)
-        .single()
-
-      // 如果 profile 不存在（PGRST116错误），尝试创建一个
-      if (error && error.code === "PGRST116") {
-        console.warn("Profile not found, attempting to create one...")
-        
-        // 尝试创建 profile
-        const { data: newProfile, error: insertError } = await supabase
-          .from("profiles")
-          .insert({
-            id: supabaseUser.id,
-            email: supabaseUser.email,
-            first_name: supabaseUser.user_metadata?.first_name || "",
-            last_name: supabaseUser.user_metadata?.last_name || "",
-            role: "User",
-            is_active: true,
-          })
-          .select()
-          .single()
-
-        if (insertError) {
-          // 如果是主键冲突（23505），说明触发器已经创建了 profile，重新查询
-          if (insertError.code === '23505') {
-            console.warn("Profile already exists (created by trigger), requerying...")
-            const { data: existingProfile, error: reqError } = await supabase
-              .from("profiles")
-              .select("*")
-              .eq("id", supabaseUser.id)
-              .single()
-
-            if (reqError || !existingProfile) {
-              console.error("Cannot load existing profile:", reqError)
-              // 这种情况很罕见，清除 session 并跳转登录
-              await supabase.auth.signOut()
-              setUser(null)
-              window.location.href = "/login?error=profile_missing"
-              return
-            }
-
-            // 使用已存在的 profile
-            const userData: User = {
-              id: supabaseUser.id,
-              email: supabaseUser.email!,
-              firstName: existingProfile.first_name || "",
-              lastName: existingProfile.last_name || "",
-              company: existingProfile.company || undefined,
-              role: existingProfile.role || "User",
-            }
-
-            console.log("Setting user data (existing profile):", userData)
-            saveUserToCache(userData) // 保存到缓存
-            setUser(userData)
-            return
-          }
-
-          // 其他错误，清除 session
-          console.error("Error creating profile:", insertError)
-          console.warn("Cannot create profile, clearing session and redirecting to login...")
-          await supabase.auth.signOut()
-          setUser(null)
-          window.location.href = "/login?error=profile_missing"
-          return
-        }
-
-        console.log("Profile created successfully:", newProfile)
-        
-        // 使用新创建的 profile
-        const userData: User = {
-          id: supabaseUser.id,
-          email: supabaseUser.email!,
-          firstName: newProfile.first_name || "",
-          lastName: newProfile.last_name || "",
-          company: newProfile.company || undefined,
-          role: newProfile.role || "User",
-        }
-
-        console.log("Setting user data (new profile):", userData)
-        saveUserToCache(userData) // 保存到缓存
-        setUser(userData)
-        return
-      }
-
-      // 其他错误（网络问题、权限问题等），清除 session
-      if (error) {
-        console.error("Error loading profile:", error)
-        console.warn("Profile query failed, clearing session and redirecting to login...")
-        // 清除 session 并重定向到登录页
-        await supabase.auth.signOut()
-        setUser(null)
-        window.location.href = "/login?error=profile_error"
-        return
-      }
-
-      console.log("Profile loaded:", profile)
-
-      const userData: User = {
-        id: supabaseUser.id,
-        email: supabaseUser.email!,
-        firstName: profile?.first_name || "",
-        lastName: profile?.last_name || "",
-        company: profile?.company || undefined,
-        role: profile?.role || "User",
-      }
-
-      console.log("Setting user data:", userData)
-      saveUserToCache(userData) // 保存到缓存
-      setUser(userData)
-      console.log("User data set successfully")
-    } catch (error: any) {
-      console.error("Error loading user profile:", error)
-      
-      // 对于网络错误，使用基本数据继续（不阻塞用户）
-      if (error.message?.includes("fetch") || error.message?.includes("network") || error.code === "ECONNREFUSED") {
-        console.warn("Network issue detected, using fallback user data...")
-        const userData: User = {
-          id: supabaseUser.id,
-          email: supabaseUser.email!,
-          firstName: supabaseUser.user_metadata?.first_name || supabaseUser.email?.split("@")[0] || "User",
-          lastName: supabaseUser.user_metadata?.last_name || "",
-          company: undefined,
-          role: "User",
-        }
-        
-        console.log("Setting fallback user data:", userData)
-        saveUserToCache(userData) // 保存到缓存
-        setUser(userData)
-        
-        // 在后台异步尝试重新加载 profile（3秒后）
-        setTimeout(async () => {
-          try {
-            console.log("Attempting background profile refresh...")
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("*")
-              .eq("id", supabaseUser.id)
-              .single()
-            
-            if (profile) {
-              console.log("Background profile refresh successful")
-              const refreshedUser: User = {
-                id: profile.id,
-                email: profile.email,
-                firstName: profile.first_name || "",
-                lastName: profile.last_name || "",
-                company: profile.company || undefined,
-                role: profile.role || "User",
-              }
-              saveUserToCache(refreshedUser) // 更新缓存
-              setUser(refreshedUser)
-            }
-          } catch (bgError) {
-            console.error("Background profile refresh failed:", bgError)
-          }
-        }, 3000) // 3秒后重试
-        
-        return
-      }
-      
-      // 其他严重错误（如数据库崩溃），清除 session 并跳转登录
-      console.warn("Critical error, clearing session and redirecting to login...")
-      try {
-        await supabase.auth.signOut()
-      } catch (signOutError) {
-        console.error("Error signing out:", signOutError)
-      }
-      
-      setUser(null)
-      window.location.href = "/login?error=profile_error"
-    }
-  }
-
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    setIsLoading(true)
-    try {
-      // 检查环境变量
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        setIsLoading(false)
-        return {
-          success: false,
-          error: "Supabase configuration not found. Please check environment variables.",
-        }
-      }
-
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
-      if (error) {
-        console.error("Login error:", error)
-        setIsLoading(false)
-
-        // 提供更友好的错误信息（UI 显示用英文）
-        let errorMessage = "Login failed"
-        if (error.message.includes("Invalid login credentials")) {
-          errorMessage = "Invalid email or password. If you don't have an account, please register first."
-        } else if (error.message.includes("Email not confirmed")) {
-          errorMessage = "Please verify your email. For local development, check Inbucket at http://localhost:54324"
-        } else if (error.message.includes("Too many requests")) {
-          errorMessage = "Too many requests. Please try again later."
-        } else if (error.message.includes("network") || error.message.includes("fetch")) {
-          errorMessage = "Cannot connect to Supabase. Please ensure Supabase is running (supabase start)"
-        } else {
-          errorMessage = error.message || "Login failed. Please try again later."
-        }
-
-        return { success: false, error: errorMessage }
-      }
-
-      if (data.user) {
-        await loadUserProfile(data.user)
-        setIsLoading(false)
-        return { success: true }
-      }
-
-      setIsLoading(false)
-      return { success: false, error: "Login failed. User information not retrieved." }
+      if (error) throw error
+      
+      setUser(data.user ? mapSupabaseUserToProfile(data.user) : null)
+      return { success: true }
     } catch (error: any) {
       console.error("Login error:", error)
-      setIsLoading(false)
-      return {
-        success: false,
-        error: error?.message || "Login failed. Please check network connection and Supabase configuration.",
-      }
+      return { success: false, error: error.message }
     }
   }
 
-  const register = async (userData: {
-    firstName: string
-    lastName: string
-    email: string
-    company?: string
-    password: string
-  }): Promise<{ success: boolean; error?: string }> => {
-    setIsLoading(true)
+  const register = async (userData: RegisterData) => {
     try {
-      // Sign up user with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
         options: {
@@ -448,83 +73,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             first_name: userData.firstName,
             last_name: userData.lastName,
             company: userData.company,
+            role: 'User', // 新用户默认角色（第一个用户会被触发器自动设为 Admin）
+            is_active: true,
           },
         },
       })
 
-      if (authError) {
-        console.error("Registration error:", authError)
-        setIsLoading(false)
-
-        let errorMessage = "Registration failed"
-        if (authError.message.includes("User already registered")) {
-          errorMessage = "This email is already registered. Please login instead."
-        } else if (authError.message.includes("Password")) {
-          errorMessage = "Password does not meet requirements. Please use at least 6 characters."
-        } else if (authError.message.includes("Email")) {
-          errorMessage = "Invalid email format"
-        } else {
-          errorMessage = authError.message || "Registration failed. Please try again later."
-        }
-
-        return { success: false, error: errorMessage }
-      }
-
-      if (authData.user) {
-        console.log("User created successfully, waiting for trigger to create profile...")
-        
-        // 等待触发器创建 profile（给触发器一点时间执行）
-        // 触发器应该会自动创建 profile，所以不需要手动创建
-        await new Promise(resolve => setTimeout(resolve, 100))
-        
-        // 加载用户 profile（如果触发器没有创建，loadUserProfile 会自动创建）
-        await loadUserProfile(authData.user)
-        setIsLoading(false)
-        return { success: true }
-      }
-
-      setIsLoading(false)
-      return { success: false, error: "Registration failed. User not created." }
+      if (error) throw error
+      
+      setUser(data.user ? mapSupabaseUserToProfile(data.user) : null)
+      return { success: true }
     } catch (error: any) {
       console.error("Registration error:", error)
-      setIsLoading(false)
-      return {
-        success: false,
-        error: error?.message || "Registration failed. Please check network connection.",
-      }
+      return { success: false, error: error.message }
+    }
+  }
+
+  const updateProfile = async (updates: Partial<UserProfile>) => {
+    try {
+      const metadata: Record<string, any> = {}
+      
+      if (updates.firstName !== undefined) metadata.first_name = updates.firstName
+      if (updates.lastName !== undefined) metadata.last_name = updates.lastName
+      if (updates.company !== undefined) metadata.company = updates.company
+      if (updates.avatar !== undefined) metadata.avatar = updates.avatar
+      // 注意：role 和 isActive 通常由管理员通过 API Route 更新
+
+      const { data, error } = await supabase.auth.updateUser({
+        data: metadata
+      })
+
+      if (error) throw error
+      
+      setUser(data.user ? mapSupabaseUserToProfile(data.user) : null)
+      return { success: true }
+    } catch (error: any) {
+      console.error("Update profile error:", error)
+      return { success: false, error: error.message }
     }
   }
 
   const logout = async () => {
-    setIsLoading(true)
     try {
       await supabase.auth.signOut()
-      clearUserCache() // 清除缓存
       setUser(null)
-      console.log("User logged out and cache cleared")
     } catch (error) {
       console.error("Logout error:", error)
-    } finally {
-      setIsLoading(false)
     }
   }
 
-  const value = {
-    user,
-    login,
-    register,
-    logout,
-    isLoading,
-    isAuthenticated: !!user,
-  }
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        isAuthenticated: !!user,
+        login,
+        register,
+        logout,
+        updateProfile,
+        refreshUser,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
   const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+  if (!context) {
+    throw new Error("useAuth must be used within AuthProvider")
   }
   return context
 }
