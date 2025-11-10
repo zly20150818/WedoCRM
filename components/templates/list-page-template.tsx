@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/table"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Search, Plus, Eye, Edit, Trash2, Calendar as CalendarIcon, Filter } from "lucide-react"
+import { Search, Plus, Eye, Edit, Trash2, Calendar as CalendarIcon, Filter, ChevronLeft, ChevronRight } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { MainLayout } from "@/components/layout/main-layout"
@@ -301,223 +301,317 @@ export default function ListPageTemplate({ config = CONFIG }: ListPageTemplatePr
   }
 
   const totalPages = Math.ceil(totalCount / config.pagination.pageSize)
+  const startItem = (currentPage - 1) * config.pagination.pageSize + 1
+  const endItem = Math.min(currentPage * config.pagination.pageSize, totalCount)
 
   return (
     <MainLayout>
-    <div className="p-8">
-      {/* 页面标题和创建按钮 */}
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold">{config.title}</h1>
-        <Button onClick={() => router.push(config.createRoute)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {config.createButtonText}
-        </Button>
-      </div>
+      <div className="container mx-auto px-4 py-8">
+        {/* 页面标题和创建按钮 */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+            {config.title}
+          </h1>
+          <Button
+            onClick={() => router.push(config.createRoute)}
+            className="flex h-10 items-center justify-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span>{config.createButtonText}</span>
+          </Button>
+        </div>
 
-      {/* 搜索和筛选器 */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          {/* 搜索框 */}
-          {config.search.enabled && (
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder={config.search.placeholder}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+        {/* Card containing Toolbar and Table */}
+        <div className="rounded-xl border border-border bg-card shadow-sm">
+          {/* Toolbar */}
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border p-4">
+            {/* 搜索框 */}
+            {config.search.enabled && (
+              <div className="relative w-full max-w-sm">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <Input
+                  className="w-full pl-10 h-10 bg-background"
+                  placeholder={config.search.placeholder}
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                />
+              </div>
+            )}
+
+            {/* 动态筛选器 */}
+            {config.filters.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                {config.filters.map((filter) => {
+                  if (filter.type === "select") {
+                    const options = filterOptions[filter.field] || []
+                    const hasIcon = "icon" in filter && filter.icon
+                    return (
+                      <div key={filter.field} className="relative">
+                        {hasIcon && (
+                          <filter.icon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 z-10" />
+                        )}
+                        <Select
+                          value={filters[filter.field] || ""}
+                          onValueChange={(value) => {
+                            setFilters({ ...filters, [filter.field]: value || null })
+                            setCurrentPage(1)
+                          }}
+                        >
+                          <SelectTrigger className={cn("h-10", hasIcon && "pl-10")}>
+                            <SelectValue placeholder={filter.placeholder} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">All</SelectItem>
+                            {options.map((option: any) => (
+                              <SelectItem
+                                key={option[filter.relation!.valueField]}
+                                value={option[filter.relation!.valueField]}
+                              >
+                                {option[filter.relation!.labelField]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )
+                  }
+
+                  if (filter.type === "dateRange") {
+                    return (
+                      <Popover key={filter.field}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="h-10 justify-start text-left font-normal">
+                            {filter.icon && <filter.icon className="mr-2 h-4 w-4" />}
+                            {filters[filter.field]?.[0]
+                              ? `${format(new Date(filters[filter.field][0]), "PP")} - ${
+                                  filters[filter.field][1]
+                                    ? format(new Date(filters[filter.field][1]), "PP")
+                                    : "..."
+                                }`
+                              : filter.label}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="range"
+                            selected={{
+                              from: filters[filter.field]?.[0]
+                                ? new Date(filters[filter.field][0])
+                                : undefined,
+                              to: filters[filter.field]?.[1]
+                                ? new Date(filters[filter.field][1])
+                                : undefined,
+                            }}
+                            onSelect={(range) => {
+                              setFilters({
+                                ...filters,
+                                [filter.field]: range?.from
+                                  ? [range.from.toISOString(), range?.to?.toISOString() || null]
+                                  : null,
+                              })
+                              setCurrentPage(1)
+                            }}
+                            numberOfMonths={2}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    )
+                  }
+
+                  return null
+                })}
+              </div>
+            )}
+
+            {/* 如果没有筛选器，显示一个占位符来保持布局 */}
+            {config.filters.length === 0 && !config.search.enabled && <div />}
+          </div>
+
+          {/* 状态标签 - 在工具栏下方，卡片内部 */}
+          {config.statusTabs.enabled && (
+            <div className="flex gap-2 flex-wrap px-4 pt-4 pb-4 border-b border-border">
+              {config.statusTabs.options.map((option) => (
+                <Button
+                  key={option.value}
+                  variant={selectedStatus === option.value ? "default" : "outline"}
+                  onClick={() => {
+                    setSelectedStatus(option.value)
+                    setCurrentPage(1)
+                  }}
+                  className="rounded-full h-8"
+                >
+                  {option.label}
+                </Button>
+              ))}
             </div>
           )}
 
-          {/* 动态筛选器 */}
-          {config.filters.map((filter) => {
-            if (filter.type === "select") {
-              const options = filterOptions[filter.field] || []
-              return (
-                <div key={filter.field} className="relative">
-                  {filter.icon && (
-                    <filter.icon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 z-10" />
-                  )}
-                  <Select
-                    value={filters[filter.field] || ""}
-                    onValueChange={(value) =>
-                      setFilters({ ...filters, [filter.field]: value || null })
-                    }
-                  >
-                    <SelectTrigger className={(filter as any).icon ? "pl-10" : ""}>
-                      <SelectValue placeholder={filter.placeholder} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All</SelectItem>
-                      {options.map((option: any) => (
-                        <SelectItem
-                          key={option[filter.relation!.valueField]}
-                          value={option[filter.relation!.valueField]}
-                        >
-                          {option[filter.relation!.labelField]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )
-            }
-
-            if (filter.type === "dateRange") {
-              return (
-                <Popover key={filter.field}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
-                      {filter.icon && <filter.icon className="mr-2 h-4 w-4" />}
-                      {filters[filter.field]?.[0]
-                        ? `${format(new Date(filters[filter.field][0]), "PP")} - ${
-                            filters[filter.field][1]
-                              ? format(new Date(filters[filter.field][1]), "PP")
-                              : "..."
-                          }`
-                        : filter.label}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="range"
-                      selected={{
-                        from: filters[filter.field]?.[0]
-                          ? new Date(filters[filter.field][0])
-                          : undefined,
-                        to: filters[filter.field]?.[1]
-                          ? new Date(filters[filter.field][1])
-                          : undefined,
-                      }}
-                      onSelect={(range) => {
-                        setFilters({
-                          ...filters,
-                          [filter.field]: range?.from
-                            ? [range.from.toISOString(), range?.to?.toISOString() || null]
-                            : null,
-                        })
-                      }}
-                      numberOfMonths={2}
-                    />
-                  </PopoverContent>
-                </Popover>
-              )
-            }
-
-            return null
-          })}
-        </div>
-
-        {/* 状态标签 */}
-        {config.statusTabs.enabled && (
-          <div className="flex gap-2 flex-wrap">
-            {config.statusTabs.options.map((option) => (
-              <Button
-                key={option.value}
-                variant={selectedStatus === option.value ? "default" : "outline"}
-                onClick={() => setSelectedStatus(option.value)}
-                className="rounded-full"
-              >
-                {option.label}
-              </Button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* 数据表格 */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {config.columns.map((column) => (
-                <TableHead
-                  key={column.key}
-                  className={column.sortable ? "cursor-pointer hover:bg-gray-50" : ""}
-                  onClick={() => column.sortable && handleSort(column.key)}
-                >
-                  <div className="flex items-center gap-2">
-                    {column.label}
-                    {column.sortable && sortField === column.key && (
-                      <span>{sortDirection === "asc" ? "↑" : "↓"}</span>
-                    )}
-                  </div>
-                </TableHead>
-              ))}
-              {config.actions.length > 0 && <TableHead>ACTIONS</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={config.columns.length + 1} className="text-center py-8">
-                  Loading...
-                </TableCell>
-              </TableRow>
-            ) : data.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={config.columns.length + 1} className="text-center py-8">
-                  No data found
-                </TableCell>
-              </TableRow>
-            ) : (
-              data.map((row) => (
-                <TableRow key={row[config.idField]}>
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
                   {config.columns.map((column) => (
-                    <TableCell key={column.key}>
-                      {column.render
-                        ? (column as any).render(row[column.key], row)
-                        : row[column.key] || "-"}
-                    </TableCell>
+                    <TableHead
+                      key={column.key}
+                      className={cn(
+                        "px-6 py-3 text-xs font-medium uppercase text-muted-foreground",
+                        column.sortable && "cursor-pointer hover:bg-muted/70"
+                      )}
+                      onClick={() => column.sortable && handleSort(column.key)}
+                    >
+                      <div className="flex items-center gap-2">
+                        {column.label}
+                        {column.sortable && sortField === column.key && (
+                          <span>{sortDirection === "asc" ? "↑" : "↓"}</span>
+                        )}
+                      </div>
+                    </TableHead>
                   ))}
                   {config.actions.length > 0 && (
-                    <TableCell>
-                      <div className="flex gap-2">
-                        {config.actions.map((action, index) => (
-                          <Button
-                            key={index}
-                            variant={action.variant}
-                            size="sm"
-                            onClick={() => router.push(action.href(row))}
-                          >
-                            <action.icon className="h-4 w-4" />
-                          </Button>
-                        ))}
-                      </div>
-                    </TableCell>
+                    <TableHead className="px-6 py-3 text-xs font-medium uppercase text-muted-foreground text-right">
+                      Action
+                    </TableHead>
                   )}
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={config.columns.length + (config.actions.length > 0 ? 1 : 0)}
+                      className="px-6 py-4 text-center"
+                    >
+                      Loading...
+                    </TableCell>
+                  </TableRow>
+                ) : data.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={config.columns.length + (config.actions.length > 0 ? 1 : 0)}
+                      className="px-6 py-4 text-center"
+                    >
+                      No data found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  data.map((row) => (
+                    <TableRow key={row[config.idField]} className="hover:bg-muted/50">
+                      {config.columns.map((column) => (
+                        <TableCell key={column.key} className="px-6 py-4">
+                          {column.render
+                            ? (column as any).render(row[column.key], row)
+                            : row[column.key] || "-"}
+                        </TableCell>
+                      ))}
+                      {config.actions.length > 0 && (
+                        <TableCell className="px-6 py-4">
+                          <div className="flex gap-2 justify-end">
+                            {config.actions.map((action, index) => {
+                              // 如果是第一个操作且只有查看操作，使用链接样式
+                              if (index === 0 && config.actions.length === 1 && action.label === "View") {
+                                return (
+                                  <Button
+                                    key={index}
+                                    variant="link"
+                                    className="font-medium text-primary hover:underline p-0 h-auto"
+                                    onClick={() => router.push(action.href(row))}
+                                  >
+                                    View Details
+                                  </Button>
+                                )
+                              }
+                              return (
+                                <Button
+                                  key={index}
+                                  variant={action.variant}
+                                  size="sm"
+                                  onClick={() => router.push(action.href(row))}
+                                  title={action.label}
+                                >
+                                  <action.icon className="h-4 w-4" />
+                                </Button>
+                              )
+                            })}
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-        {/* 分页 */}
-        <div className="flex items-center justify-between px-6 py-4 border-t">
-          <div className="text-sm text-gray-600">
-            Showing {(currentPage - 1) * config.pagination.pageSize + 1} to{" "}
-            {Math.min(currentPage * config.pagination.pageSize, totalCount)} of {totalCount} results
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setCurrentPage(currentPage - 1)}
-              disabled={currentPage === 1}
+          {/* Pagination */}
+          {totalPages > 0 && (
+            <nav
+              aria-label="Table navigation"
+              className="flex items-center justify-between p-4 border-t border-border"
             >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setCurrentPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </Button>
-          </div>
+              <span className="text-sm font-normal text-muted-foreground">
+                Showing <span className="font-semibold text-foreground">{startItem}</span> to{" "}
+                <span className="font-semibold text-foreground">{endItem}</span> of{" "}
+                <span className="font-semibold text-foreground">{totalCount}</span>
+              </span>
+              <div className="flex items-center justify-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum: number
+                  if (totalPages <= 5) {
+                    pageNum = i + 1
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i
+                  } else {
+                    pageNum = currentPage - 2 + i
+                  }
+
+                  if (pageNum > totalPages) return null
+
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={currentPage === pageNum ? "secondary" : "ghost"}
+                      size="icon"
+                      className="h-9 w-9"
+                      onClick={() => setCurrentPage(pageNum)}
+                    >
+                      {pageNum}
+                    </Button>
+                  )
+                })}
+                {totalPages > 5 && currentPage < totalPages - 2 && (
+                  <span className="flex h-9 w-9 items-center justify-center text-sm">...</span>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </nav>
+          )}
         </div>
       </div>
-    </div>
     </MainLayout>
   )
 }
